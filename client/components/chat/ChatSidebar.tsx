@@ -53,7 +53,7 @@ export function ChatSidebar({
   }
 
   // Filter out current user from all users with null check
-  const availableUsers = allUsers.filter(user => user && user.id && user.name && user.id !== currentUser?.id);
+  const availableUsers = allUsers.filter(user => user && user.id && user.name && user.id !== currentUser?.id && user.id !== "bot-assistant");
 
   if (availableUsers.length === 0 && !isLoadingSessions && !isLoadingUsers) {
     return (

@@ -21,6 +21,7 @@ interface NewMessageDropdownProps {
 
 export function NewMessageDropdown({ users, currentUserId, onSelectUser, trigger }: NewMessageDropdownProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [open, setOpen] = useState(false);
 
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
@@ -32,7 +33,7 @@ export function NewMessageDropdown({ users, currentUserId, onSelectUser, trigger
   }, [users, searchQuery, currentUserId]);
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         {trigger ?? (
           <Button className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
@@ -64,7 +65,13 @@ export function NewMessageDropdown({ users, currentUserId, onSelectUser, trigger
               {filteredUsers.map((user) => (
                 <button
                   key={user.id}
-                  onClick={() => onSelectUser(user.id)}
+                  onClick={() => {
+                    try {
+                      onSelectUser(user.id);
+                    } finally {
+                      setOpen(false);
+                    }
+                  }}
                   className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-muted transition-all text-left"
                 >
                   <div className="relative flex-shrink-0">

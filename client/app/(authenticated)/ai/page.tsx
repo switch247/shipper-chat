@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send, Sparkles } from 'lucide-react';
 import Image from 'next/image';
+import { sendAIMessage, startAIConversation, getChatMessages } from '@/lib/api/chat';
 
 interface Message {
   id: string;
@@ -15,13 +16,9 @@ interface Message {
 
 export default function AIPage() {
   const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: 'Hello! I\'m your AI assistant. How can I help you today?',
-      timestamp: new Date(),
-    },
+    // initial empty, will load from server
   ]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -33,6 +30,37 @@ export default function AIPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Start or get AI conversation on mount
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const conv = await startAIConversation();
+        if (!mounted) return;
+        if (conv?.id) {
+          setConversationId(conv.id);
+          // load existing messages if any
+          try {
+            const msgs: any[] = await getChatMessages(conv.id);
+            const mapped = msgs.map((m) => ({
+              id: m.id,
+              role: m.senderId === 'bot-assistant' || m.isAI ? 'assistant' : 'user',
+              content: m.content,
+              timestamp: new Date(m.createdAt || m.timestamp || Date.now()),
+            }));
+            setMessages(mapped);
+          } catch (err) {
+            // ignore load errors
+            console.warn('[AI] could not load messages', err);
+          }
+        }
+      } catch (err) {
+        console.error('[AI] start conversation failed', err);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,17 +78,32 @@ export default function AIPage() {
     setInput('');
     setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
+    try {
+      if (!conversationId) {
+        throw new Error('No AI conversation available');
+      }
+      const botMsg: any = await sendAIMessage(conversationId, input);
+      if (botMsg) {
+        const assistantMessage: Message = {
+          id: botMsg.id || Date.now().toString(),
+          role: 'assistant',
+          content: botMsg.content || botMsg.text || '',
+          timestamp: new Date(botMsg.createdAt || Date.now()),
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+      }
+    } catch (err) {
+      console.error('[AI] send failed', err);
+      const errorMsg: Message = {
+        id: `err-${Date.now()}`,
         role: 'assistant',
-        content: `I received your message: "${input}". This is a demo response. In production, this would be connected to an AI API.`,
+        content: 'Sorry, the AI request failed. Please try again later.',
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, assistantMessage]);
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (

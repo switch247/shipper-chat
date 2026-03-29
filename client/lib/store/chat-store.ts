@@ -311,14 +311,54 @@ export const useChatStore = create<ChatStore>()(
 
       sendMessage: async (chatId: string, content: string) => {
         try {
-          const response = await apiClient.sendMessage(chatId, content);
+          let conversationId = chatId;
+
+          // If this is a temp/new conversation id, create the conversation first
+          if (chatId.startsWith('new-')) {
+            const userId = chatId.replace('new-', '');
+            const resp = await apiClient.createConversation(userId);
+            if (resp.success && resp.data) {
+                conversationId = resp.data.id;
+                // select the newly created conversation and reload sessions
+                set({ selectedChatId: conversationId });
+                await get().loadChatSessions();
+            } else {
+              throw new Error(resp.error || 'Failed to create conversation');
+            }
+          }
+
+          // Prefer socket path (server saves and broadcasts); fall back to REST
+          try {
+            const { emitSendMessage, getSocket } = await import('../socket');
+            const socket = getSocket();
+            if (socket) {
+              const senderId = get().currentUser?.id || '';
+              emitSendMessage({ senderId, conversationId, content, type: 'TEXT' });
+
+              // optimistic local update
+              const optimisticMessage = {
+                id: Date.now().toString(),
+                senderId,
+                content,
+                timestamp: new Date(),
+                read: false,
+              } as any;
+              get().addMessage(conversationId, optimisticMessage);
+              return;
+            }
+          } catch (socketErr) {
+            // continue to REST fallback
+            console.warn('Socket send failed, falling back to REST:', socketErr);
+          }
+
+          const response = await apiClient.sendMessage(conversationId, content);
           if (response.success && response.data) {
-            get().addMessage(chatId, response.data);
+            get().addMessage(conversationId, response.data);
           } else {
             throw new Error(response.error || 'Failed to send message');
           }
         } catch (error) {
-          console.error("Failed to send message:", error);
+          console.error('Failed to send message:', error);
           throw error;
         }
       },

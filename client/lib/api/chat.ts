@@ -89,6 +89,14 @@ export async function getContactInfoForUser(userId: string): Promise<ContactInfo
 }
 
 /**
+ * Start or get a 1:1 conversation with the AI assistant
+ */
+export async function startAIConversation(): Promise<any> {
+  if (MOCK_MODE) return null;
+  return authenticatedFetch('/ai/start', { method: 'POST' });
+}
+
+/**
  * Archive a chat
  */
 export async function archiveChat(chatId: string): Promise<void> {

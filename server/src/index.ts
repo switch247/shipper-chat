@@ -3,10 +3,10 @@ import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import authRoutes from './auth/auth.routes.js';
-import chatRoutes from './chat/chat.routes.js';
-import aiRoutes from './ai/ai.routes.js';
-import { socketHandler } from './chat/socket.manager.js';
+import authRoutes from '@/auth/auth.routes.js';
+import chatRoutes from '@/chat/chat.routes';
+import aiRoutes from '@/ai/ai.routes';
+import { socketHandler } from '@/chat/socket.manager';
 
 dotenv.config();
 
