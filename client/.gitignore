@@ -1,0 +1,43 @@
+# v0 sandbox internal files
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+.snowflake/
+.v0-trash/
+.vercel/
+next.user-config.*
+
+# Environment variables
+.env*.local
+
+# Common ignores
+node_modules
+.next/
+.DS_Store
+
+.env
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+pnpm-lock.yaml
+dist/
+coverage/
+.idea/
+.vscode/
+*.log
+*.swp
+*.swo
+*.tmp
+*.bak
+*.orig
+*.patch
+*.tgz
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
+*.sublime-workspace
+*.sublime-project
+*.code-workspace

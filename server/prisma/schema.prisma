@@ -1,0 +1,88 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserStatus {
+  ONLINE
+  OFFLINE
+  AWAY
+  BUSY
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM
+}
+
+model User {
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  password      String?
+  googleId      String?        @unique
+  avatar        String?
+  status        UserStatus     @default(OFFLINE)
+  isBot         Boolean        @default(false)
+  
+  // Relations
+  participations Participant[]
+  sentMessages   Message[]      @relation("SentMessages")
+  
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model Conversation {
+  id            String         @id @default(cuid())
+  name          String?        // For group chats
+  isGroup       Boolean        @default(false)
+  image         String?
+  
+  // Relations
+  participants  Participant[]
+  messages      Message[]
+  
+  lastMessageId String?
+  
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model Participant {
+  id             String       @id @default(cuid())
+  userId         String
+  conversationId String
+  
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  lastReadAt     DateTime     @default(now())
+  joinedAt       DateTime     @default(now())
+  
+  @@unique([userId, conversationId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  content        String?
+  type           MessageType  @default(TEXT)
+  fileUrl        String?
+  
+  senderId       String
+  conversationId String
+  
+  sender         User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  isAI           Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+}
