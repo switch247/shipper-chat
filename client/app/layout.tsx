@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
-import { AuthProvider } from '@/lib/auth-context'
 import './globals.css'
 
 // Force rebuild - cache invalidation for deleted /app/chat routes
@@ -46,11 +45,12 @@ export default function RootLayout({
           defaultTheme="light"
           enableSystem
         >
-          <AuthProvider>
-            {children}
-          </AuthProvider>
+          {children}
         </ThemeProvider>
         <Analytics />
+        
+        {/* Google Sign-In Script */}
+        <script src="https://accounts.google.com/gsi/client" async defer></script>
       </body>
     </html>
   )

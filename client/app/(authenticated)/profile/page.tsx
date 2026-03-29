@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/lib/auth-context';
+import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,8 +27,8 @@ export default function ProfilePage() {
             <div className="flex items-end gap-4">
               <div className="relative">
                 <Image
-                  src={currentUser.avatar}
-                  alt={currentUser.name}
+                  src={typeof currentUser.avatar === 'string' && currentUser.avatar.trim() !== '' ? currentUser.avatar : '/placeholder-user.jpg'}
+                  alt={currentUser.name || 'User avatar'}
                   width={96}
                   height={96}
                   className="w-24 h-24 rounded-full object-cover"

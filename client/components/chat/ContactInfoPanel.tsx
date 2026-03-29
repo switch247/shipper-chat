@@ -13,7 +13,17 @@ interface ContactInfoPanelProps {
 }
 
 export function ContactInfoPanel({ contactInfo, onClose, isOpen = true }: ContactInfoPanelProps) {
+  if (!contactInfo) return null;
   const { user, media, links, docs } = contactInfo;
+
+  if (!user) return null;
+
+  const getAvatarSrc = (avatar: any) => {
+    if (!avatar) return '/placeholder-user.jpg';
+    if (typeof avatar === 'string') return avatar;
+    if (typeof avatar === 'object' && 'src' in avatar) return String(avatar.src);
+    return '/placeholder-user.jpg';
+  };
   const [activeTab, setActiveTab] = useState<'media' | 'links' | 'docs'>('media');
 
   // Handle outside click
@@ -59,8 +69,8 @@ export function ContactInfoPanel({ contactInfo, onClose, isOpen = true }: Contac
         {/* User Profile Section */}
         <div className="px-6 py-6 border-b border-border text-center">
           <Image
-            src={user.avatar}
-            alt={user.name}
+            src={getAvatarSrc(user.avatar)}
+            alt={user.name || 'User avatar'}
             width={80}
             height={80}
             className="w-20 h-20 rounded-full object-cover mx-auto mb-4"

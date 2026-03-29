@@ -1,5 +1,5 @@
 import { Server, Socket } from 'socket.io';
-import { prisma } from '../lib/prisma.js';
+import { prisma } from '../lib/prisma';
 
 export const socketHandler = (io: Server, socket: Socket) => {
   console.log(`[Socket] Client connected: ${socket.id}`);

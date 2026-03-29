@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { prisma } from '../lib/prisma.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { prisma } from '../lib/prisma';
+import { authMiddleware } from '../middleware/auth';
 
 const router = Router();
 
@@ -95,6 +95,59 @@ router.post('/conversations', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('[ChatRoutes] Error creating conversation:', error);
     return res.status(500).json({ error: 'Failed to create conversation' });
+  }
+});
+
+
+// Get all users (for chat functionality)
+router.get('/users', authMiddleware, async (req, res) => {
+  const userId = (req as any).user.id;
+
+  try {
+    const users = await prisma.user.findMany({
+      where: {
+        id: { not: userId }, // Exclude current user
+        isBot: false, // Exclude bots
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        avatar: true,
+        status: true,
+      },
+    });
+
+    return res.status(200).json(users);
+  } catch (error) {
+    console.error('[ChatRoutes] Error fetching users:', error);
+    return res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Get user contact info
+router.get('/users/:userId/contact-info', authMiddleware, async (req, res) => {
+  const { userId } = req.params;
+  const currentUserId = (req as any).user.id;
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        avatar: true,
+        status: true,
+      },
+    });
+
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    return res.status(200).json(user);
+  } catch (error) {
+    console.error('[ChatRoutes] Error fetching user contact info:', error);
+    return res.status(500).json({ error: 'Failed to fetch user contact info' });
   }
 });
 

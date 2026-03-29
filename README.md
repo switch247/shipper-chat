@@ -95,20 +95,31 @@ shipper-chat/
 
 3. **Environment Setup**
 
-   Create `.env` files in both `client/` and `server/` directories:
+   Copy the example environment files and configure them:
+
+   ```bash
+   # Backend
+   cp server/.env.example server/.env
+
+   # Frontend
+   cp client/.env.example client/.env.local
+   ```
+
+   Then update the following values in the copied files:
 
    **server/.env:**
    ```env
-   DATABASE_URL=postgresql://user:pass@host:port/db
+   DATABASE_URL=postgresql://your_db_user:your_db_password@your_db_host:your_db_port/your_db_name
    PORT=3001
    CLIENT_URL=http://localhost:3000
-   GOOGLE_GENERATIVE_AI_API_KEY=your_gemini_api_key
-   JWT_SECRET=your_jwt_secret
+   GOOGLE_GENERATIVE_AI_API_KEY=your_actual_gemini_api_key
+   JWT_SECRET=your_secure_jwt_secret
    ```
 
    **client/.env.local:**
    ```env
    NEXT_PUBLIC_API_URL=http://localhost:3001
+   NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id
    ```
 
 4. **Database Setup**

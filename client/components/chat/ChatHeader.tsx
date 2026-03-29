@@ -1,7 +1,7 @@
 'use client';
 
 import { User } from '@/lib/types';
-import { Phone, Video, Search, MoreVertical } from 'lucide-react';
+import { Phone, Video, Search, MoreVertical, Info, Archive, MessageCircleX, Download, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,6 +9,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
   Tooltip,
@@ -20,7 +21,7 @@ import {
 interface ChatHeaderProps {
   user: User;
   isOnline?: boolean;
-  onContactInfoClick?: () => void;
+  onContactInfoClick?: (userId?: string) => void;
   onSearch?: () => void;
   onCall?: () => void;
   onVideo?: () => void;
@@ -36,12 +37,18 @@ export function ChatHeader({
   onVideo,
   onMenuAction,
 }: ChatHeaderProps) {
+  const getAvatarSrc = (avatar: any) => {
+    if (!avatar) return '/placeholder-user.jpg';
+    if (typeof avatar === 'string') return avatar;
+    if (typeof avatar === 'object' && 'src' in avatar) return String(avatar.src);
+    return '/placeholder-user.jpg';
+  };
   return (
     <div className="flex items-center justify-between px-6 py-4 bg-background shrink-0">
       <div className="flex items-center gap-3">
         <Image
-          src={user.avatar}
-          alt={user.name}
+          src={getAvatarSrc(user.avatar)}
+          alt={user.name || 'User avatar'}
           width={40}
           height={40}
           className="w-10 h-10 rounded-full object-cover"
@@ -62,7 +69,7 @@ export function ChatHeader({
                 variant="ghost"
                 size="sm"
                 onClick={onSearch}
-                className="h-9 w-9 p-0 hover:bg-muted"
+                className="h-9 w-9 p-0 bg-gray-50 hover:bg-muted"
               >
                 <Search className="w-5 h-5 text-foreground" />
               </Button>
@@ -76,7 +83,7 @@ export function ChatHeader({
                 variant="ghost"
                 size="sm"
                 onClick={onCall}
-                className="h-9 w-9 p-0 hover:bg-muted"
+                className="h-9 w-9 p-0 bg-gray-50 hover:bg-muted"
               >
                 <Phone className="w-5 h-5 text-foreground" />
               </Button>
@@ -90,7 +97,7 @@ export function ChatHeader({
                 variant="ghost"
                 size="sm"
                 onClick={onVideo}
-                className="h-9 w-9 p-0 hover:bg-muted"
+                className="h-9 w-9 p-0 bg-gray-50 hover:bg-muted"
               >
                 <Video className="w-5 h-5 text-foreground" />
               </Button>
@@ -104,35 +111,38 @@ export function ChatHeader({
             <Button
               variant="ghost"
               size="sm"
-              className="h-9 w-9 p-0 hover:bg-muted"
+              className="h-9 w-9 p-0 bg-gray-50 hover:bg-muted"
             >
               <MoreVertical className="w-5 h-5 text-foreground" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem onClick={() => onMenuAction?.('contact-info')}>
-              Contact Info
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={() => onContactInfoClick?.(user.id)}>
+              <Info className="w-4 h-4 mr-2" />
+              <span>Contact Info</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onMenuAction?.('search')}>
-              Search in chat
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => onMenuAction?.('archive')}>
+              <Archive className="w-4 h-4 mr-2" />
+              <span>Archive</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onMenuAction?.('mute')}>
-              Mute
+              <MessageCircleX className="w-4 h-4 mr-2" />
+              <span>Mute</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onMenuAction?.('archive')}>
-              Archive
-            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => onMenuAction?.('export')}>
-              Export chat
+              <Download className="w-4 h-4 mr-2" />
+              <span>Export chat</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onMenuAction?.('clear')}>
-              Clear chat
+              <Phone className="w-4 h-4 mr-2" />
+              <span>Clear chat</span>
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => onMenuAction?.('delete')}
-              className="text-destructive focus:text-destructive"
-            >
-              Delete chat
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => onMenuAction?.('delete')} className="text-destructive">
+              <Trash2 className="w-4 h-4 mr-2" />
+              <span>Delete chat</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -6,7 +6,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 async function authenticatedFetch(url: string, options: RequestInit = {}) {
   if (MOCK_MODE) return null; // Logic will switch to mock call below
-  const token = localStorage.getItem('chat-token');
+  const token = localStorage.getItem('auth_token');
   const headers = {
     'Content-Type': 'application/json',
     ...(token ? { 'Authorization': `Bearer ${token}` } : {}),

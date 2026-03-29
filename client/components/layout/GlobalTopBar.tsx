@@ -23,10 +23,10 @@ import {
   LayoutGrid,
   User,
 } from 'lucide-react';
-import { useAuth } from '@/lib/use-auth';
+import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { useChatStore } from '@/lib/store';
+import { useChatStore } from '@/lib/store/chat-store';
 
 export function GlobalTopBar() {
   const pathname = usePathname();
@@ -57,8 +57,8 @@ export function GlobalTopBar() {
   const BreadcrumbIcon = breadcrumb.icon;
 
   return (
-    <header className="h-16 shrink-0 px-6 flex items-center justify-center z-40 bg-gray-50/50">
-      <div className="w-full flex items-center justify-between  bg-white rounded-lg">
+    <header className="h-20 shrink-0 px-4 flex items-center justify-center z-40 bg-input">
+      <div className="w-full flex items-center justify-between  bg-white rounded-xl p-4">
 
         {/* Left: Breadcrumb/Title */}
         <div className="flex items-center gap-3">

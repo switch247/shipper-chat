@@ -1,15 +1,15 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useChatStore } from '@/lib/store';
+import { useChatStore } from '@/lib/store/chat-store';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { MessageList } from '@/components/chat/MessageList';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { ContactInfoPanel } from '@/components/chat/ContactInfoPanel';
 import { NewMessageModal } from '@/components/chat/NewMessageModal';
 import { ContactInfo } from '@/lib/types';
-import { sendMessage, getContactInfoForUser, getUsers } from '@/lib/api/chat';
-import { CURRENT_USER, MOCK_USERS } from '@/lib/mocks/data';
+import { getContactInfoForUser, getUsers } from '@/lib/api/chat';
+import { CURRENT_USER } from '@/lib/mocks/data';
 
 export default function ChatPage() {
   const store = useChatStore();
@@ -29,12 +29,16 @@ export default function ChatPage() {
     loadUsers();
   }, []);
 
-  // Load contact info when chat is selected
+  // Load contact info when chat is selected (fetch by participant user id)
   useEffect(() => {
     if (store.selectedChatId && store.showContactPanel) {
       const loadContactInfo = async () => {
         try {
-          const info = await getContactInfoForUser(store.selectedChatId!);
+          const chatSession = store.chatSessions.find(session => session.id === store.selectedChatId);
+          const userId = chatSession?.participant?.id;
+          if (!userId) return;
+
+          const info = await getContactInfoForUser(userId);
           setContactInfo(info);
         } catch (error) {
           console.error('[v0] Error loading contact info:', error);
@@ -42,24 +46,30 @@ export default function ChatPage() {
       };
       loadContactInfo();
     }
-  }, [store.selectedChatId, store.showContactPanel]);
+  }, [store.selectedChatId, store.showContactPanel, store.chatSessions]);
 
   const handleSendMessage = useCallback(async (content: string) => {
     if (!store.selectedChatId) return;
 
     try {
-      const newMessage = await sendMessage(store.selectedChatId, content);
-      store.addMessage(store.selectedChatId, newMessage);
+      await store.sendMessage(store.selectedChatId, content);
     } catch (error) {
       console.error('[v0] Error sending message:', error);
     }
   }, [store]);
 
-  const handleContactInfoClick = async () => {
-    if (!store.selectedChatId) return;
-
+  const handleContactInfoClick = async (userId?: string) => {
     try {
-      const info = await getContactInfoForUser(store.selectedChatId);
+      let idToFetch = userId;
+
+      if (!idToFetch) {
+        if (!store.selectedChatId) return;
+        const chatSession = store.chatSessions.find(session => session.id === store.selectedChatId);
+        if (!chatSession?.participant) return;
+        idToFetch = chatSession.participant.id;
+      }
+
+      const info = await getContactInfoForUser(idToFetch!);
       setContactInfo(info);
       store.setContactPanelVisible(true);
     } catch (error) {
@@ -80,7 +90,8 @@ export default function ChatPage() {
     );
   }
 
-  const participant = MOCK_USERS.find(u => u.id === selectedChatId) || {
+  const chatSession = store.chatSessions.find(session => session.id === selectedChatId);
+  const participant = chatSession?.participant || {
     id: selectedChatId || '',
     name: 'Unknown User',
     avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedChatId}`,

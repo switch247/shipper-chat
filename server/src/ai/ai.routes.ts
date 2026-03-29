@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { streamText, generateText } from 'ai';
 import { google } from '@ai-sdk/google';
-import { prisma } from '../lib/prisma.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { prisma } from '../lib/prisma';
+import { authMiddleware } from '../middleware/auth';
 
 const router = Router();
 

@@ -1,12 +1,10 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { ChatSidebar } from '@/components/chat/ChatSidebar';
-import { CURRENT_USER, MOCK_USERS } from '@/lib/mocks/data';
-import { useChatStore } from '@/lib/store';
+import { useChatStore } from '@/lib/store/chat-store';
 import { Funnel, WandSparkles } from 'lucide-react';
-import { getChatSessions } from '@/lib/api/chat';
-import { ChatSession } from '@/lib/types';
+import { NewMessageDropdown } from '@/components/chat/NewMessageDropdown';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
@@ -17,48 +15,60 @@ export default function ChatLayout({
 }) {
   const store = useChatStore();
   const sessions = store.chatSessions;
-  const isLoadingChats = store.isLoading;
+  const allUsers = store.allUsers;
+  const isLoadingSessions = store.isLoadingSessions;
+  const isLoadingUsers = store.isLoadingUsers;
   const searchQuery = store.searchQuery;
   const hasLoadedRef = useRef(false);
 
   useEffect(() => {
-    if (hasLoadedRef.current) return;
+    if (hasLoadedRef.current || !store.currentUser) return;
     hasLoadedRef.current = true;
 
-    const loadSessions = async () => {
-      store.setLoading(true);
+    const loadData = async () => {
       try {
-        const chats = await getChatSessions();
-        store.setChatSessions(chats);
+        // Load both sessions and users in parallel
+        await Promise.all([
+          store.loadChatSessions(),
+          store.loadUsers()
+        ]);
 
-        const onlineUserIds = MOCK_USERS.filter(u => u.status === 'online').map(u => u.id);
-        store.setOnlineUsers(onlineUserIds);
-
-        if (chats.length > 0 && !store.selectedChatId) {
-          store.setSelectedChat(chats[0].id);
-          store.setMessages(chats[0].id, chats[0].messages);
+        // If we have sessions and no chat is selected, select the first one
+        if (sessions.length > 0 && !store.selectedChatId) {
+          store.setSelectedChat(sessions[0].id);
+          await store.loadChatMessages(sessions[0].id);
         }
       } catch (error) {
-        console.error('[ChatFlow] Error loading chat sessions:', error);
-      } finally {
-        store.setLoading(false);
+        console.error('[ChatFlow] Error loading data:', error);
       }
     };
 
-    loadSessions();
-  }, []);
+    loadData();
+  }, [store.currentUser]);
 
-  const handleSelectChat = (chatId: string) => {
-    store.setSelectedChat(chatId);
-    const selectedSession = sessions.find(s => s.id === chatId);
-    if (selectedSession) {
-      store.setMessages(chatId, selectedSession.messages);
+  const handleSelectChat = async (chatId: string) => {
+    // Check if this is a new conversation (starts with 'new-')
+    if (chatId.startsWith('new-')) {
+      const userId = chatId.replace('new-', '');
+      try {
+        await store.createConversation(userId);
+      } catch (error) {
+        console.error('Failed to create conversation:', error);
+        return;
+      }
+    } else {
+      store.setSelectedChat(chatId);
+      // Load messages for the selected chat if not already loaded
+      if (!store.messages[chatId]) {
+        await store.loadChatMessages(chatId);
+      }
     }
     store.setContactPanelVisible(false);
   };
 
-  const filteredSessions = sessions.filter(session =>
-    session.participant.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredUsers = allUsers.filter(user =>
+    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -66,67 +76,63 @@ export default function ChatLayout({
       {/* Chat List Sidebar */}
       {/* w-full h-full flex bg-input overflow-hidden gap-3 p-4  */}
       <div className="flex-1 flex flex-col border-r bg-white overflow-hidden shrink-0 rounded-2xl gap-3 p-4 ">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center justify-between  bg-background shrink-0">
+        {/* top side */}
+        <div className="flex flex-col gap-3">
+          {/* Row 1: Title and New Message button */}
+          <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">All Messages</h2>
-
-            <div
-              onClick={() => store.setShowNewMessageModal(true)}
-              className=" p-2 h-8 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg flex items-center justify-between transition-colors"
-              title="New Message"
-            >
-              <WandSparkles className="w-5 h-5" />
-              New Message
-            </div>
+            <NewMessageDropdown
+              users={filteredUsers}
+              currentUserId={store.currentUser?.id || ''}
+              onSelectUser={(userId) => {
+                // create or select conversation
+                handleSelectChat(`new-${userId}`);
+              }}
+              trigger={
+                <Button
+                  className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+                  title="New Message"
+                >
+                  <WandSparkles className="w-4 h-4" />
+                  New Message
+                </Button>
+              }
+            />
           </div>
-          {/* search and filter */}
-          <div className='flex gap-2 justify-between'>
+
+          {/* Row 2: Search input and Clear button */}
+          <div className="flex items-center gap-2">
             <Input
               type="text"
               placeholder="Search..."
               value={searchQuery}
               onChange={(e) => store.setSearchQuery(e.target.value)}
-              className="w-full"
+              className="flex-1"
             />
             <Button
               onClick={() => store.setSearchQuery('')}
-              className="w-8 h-8  text-primary-foreground rounded-lg flex items-center justify-between transition-colors"
+              variant="outline"
+              size="icon"
+              className="flex-shrink-0"
               title="Clear Search"
             >
-              <Funnel className="w-5 h-5" />
+              <Funnel className="w-4 h-4" />
             </Button>
           </div>
         </div>
-        {isLoadingChats ? (
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="flex gap-4 p-2">
-                <div className="w-12 h-12 rounded-xl bg-muted animate-pulse flex-shrink-0" />
-                <div className="flex-1 space-y-2 min-w-0">
-                  <div className="h-4 bg-muted rounded animate-pulse" />
-                  <div className="h-3 bg-muted rounded animate-pulse w-3/4" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex-1 overflow-y-auto">
-            {filteredSessions.length > 0 ? (
-              <ChatSidebar
-                sessions={filteredSessions}
-                currentUser={CURRENT_USER}
-                selectedChatId={store.selectedChatId}
-                onlineUsers={store.onlineUsers}
-                onSelectChat={handleSelectChat}
-                onNewMessage={() => store.setShowNewMessageModal(true)}
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                No conversations found
-              </div>
-            )}
-          </div>
-        )}
+        
+        <div className="flex-1 overflow-y-auto">
+          <ChatSidebar
+            sessions={sessions}
+            allUsers={filteredUsers}
+            selectedChatId={store.selectedChatId}
+            onlineUsers={store.onlineUsers}
+            onSelectChat={handleSelectChat}
+            onNewMessage={() => store.setShowNewMessageModal(true)}
+            isLoadingSessions={isLoadingSessions}
+            isLoadingUsers={isLoadingUsers}
+          />
+        </div>
       </div>
 
       <div className="flex-2 flex flex-col min-w-0 bg-background overflow-hidden rounded-2xl">

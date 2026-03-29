@@ -4,7 +4,8 @@ import { ChatSession, User } from '@/lib/types';
 import { Check, CheckCheck, MoreVertical, Phone, Download, Trash2, MessageCircleX, Info, Archive, MessageCircle } from 'lucide-react';
 import Image from 'next/image';
 import { useState, useRef, useEffect } from 'react';
-import { useChatStore } from '@/lib/store';
+import { useChatStore } from '@/lib/store/chat-store';
+import { getTimeString } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +15,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 interface UserListItemProps {
-  session: ChatSession;
+  user?: User;
+  session?: ChatSession;
   isSelected?: boolean;
   isUserOnline?: boolean;
   onClick?: () => void;
@@ -27,6 +29,7 @@ interface UserListItemProps {
 }
 
 export function UserListItem({
+  user,
   session,
   isSelected = false,
   isUserOnline = false,
@@ -38,9 +41,16 @@ export function UserListItem({
   onClearChat,
   onDeleteChat,
 }: UserListItemProps) {
-  const { participant, lastMessage, unreadCount } = session;
+  // Use session data if available, otherwise use user data
+  const displayUser = session?.participant || user;
+  const lastMessage = session?.lastMessage;
+  const unreadCount = session?.unreadCount || 0;
+  const sessionId = session?.id || (user?.id ? `new-${user.id}` : '');
+
+  if (!displayUser || !displayUser.id || !displayUser.name) return null;
+
   const store = useChatStore();
-  const isBeingSwiped = store.swipedChatId === session.id;
+  const isBeingSwiped = store.swipedChatId === sessionId;
   const [localSwipeX, setLocalSwipeX] = useState(0);
   const touchStartX = useRef(0);
   const itemRef = useRef<HTMLDivElement>(null);
@@ -69,7 +79,7 @@ export function UserListItem({
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
-    store.setSwipedChatId(session.id);
+    store.setSwipedChatId(sessionId);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -109,20 +119,20 @@ export function UserListItem({
         {/* Left action zone (Mark unread) */}
         {localSwipeX > 5 && (
           <div className="rounded-2xl absolute left-0 inset-y-0 w-1/6 flex items-center justify-center z-0 pointer-events-none bg-blue-500 text-white">
-            <MessageCircle className="w-6 h-6" />
+            <MessageCircle className="w-4 h-3" />
           </div>
         )}
 
         {/* Right action zone (Archive) */}
         {localSwipeX < -5 && (
           <div className="rounded-2xl absolute right-0 inset-y-0 w-1/6 flex items-center justify-center z-0 pointer-events-none bg-primary text-white">
-            <Archive className="w-6 h-6" />
+            <Archive className="w-4 h-3" />
           </div>
         )}
 
         {/* Swipeable Content */}
         <div
-          className={`${cardRadius} relative z-10 transition-all flex items-start gap-4 p-4 cursor-pointer select-none ${isSelected ? 'bg-gray-100' : 'bg-white hover:bg-gray-50'
+          className={`${cardRadius} relative z-10 transition-all flex items-start gap-4 p-4 cursor-pointer select-none ${isSelected ? 'bg-input' : 'bg-white hover:bg-gray-100'
             }`}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -130,7 +140,7 @@ export function UserListItem({
           onMouseDown={(e) => {
             if (e.button === 0) {
               touchStartX.current = e.clientX;
-              store.setSwipedChatId(session.id);
+              store.setSwipedChatId(sessionId);
             }
           }}
           onMouseMove={(e) => {
@@ -168,8 +178,8 @@ export function UserListItem({
             {/* Avatar with online indicator */}
             <div className="relative flex-shrink-0">
               <Image
-                src={participant.avatar}
-                alt={participant.name}
+                src={typeof displayUser.avatar === 'string' && displayUser.avatar.trim() !== '' ? displayUser.avatar : '/placeholder-user.jpg'}
+                alt={displayUser.name || 'User avatar'}
                 width={48}
                 height={48}
                 className="w-12 h-12 rounded-full object-cover"
@@ -183,7 +193,7 @@ export function UserListItem({
             <div className="flex-1 min-w-0 text-left">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="font-semibold text-sm text-foreground truncate">
-                  {participant.name}
+                  {displayUser.name}
                 </h3>
                 {timeString && (
                   <span className="text-xs text-muted-foreground flex-shrink-0">
@@ -209,7 +219,7 @@ export function UserListItem({
           {/* Context Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded flex-shrink-0">
+              <button className="opacity-60 hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded flex-shrink-0">
                 <MoreVertical className="w-4 h-4 text-muted-foreground" />
               </button>
             </DropdownMenuTrigger>
@@ -247,20 +257,4 @@ export function UserListItem({
       </div>
     </div>
   );
-}
-
-function getTimeString(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return 'now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays === 1) return 'yesterday';
-  if (diffDays < 7) return `${diffDays}d ago`;
-
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }

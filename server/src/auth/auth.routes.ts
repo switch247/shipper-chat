@@ -2,11 +2,35 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
-import { prisma } from 'lib/prisma';
-
+import { prisma } from '../lib/prisma';
+import {authMiddleware} from '../middleware/auth';
 const router = Router();
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// Get current user info
+router.get('/me', authMiddleware, async (req, res) => {
+  const userId = (req as any).user.id;
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        avatar: true,
+        status: true,
+      },
+    });
+
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    return res.status(200).json({ user });
+  } catch (error) {
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 // Internal Login
 router.post('/login', async (req, res) => {

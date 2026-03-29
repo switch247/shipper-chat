@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/lib/use-auth';
+import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { GlobalSidebar } from '@/components/layout/GlobalSidebar';
@@ -11,8 +11,13 @@ export default function AuthenticatedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, checkAuth } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    // Check authentication on mount
+    checkAuth();
+  }, [checkAuth]);
 
   useEffect(() => {
     if (!isAuthenticated) {
