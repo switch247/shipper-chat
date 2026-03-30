@@ -106,14 +106,32 @@ export function GlobalTopBar() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="gap-2 h-10">
-                <div className="w-6 h-6 rounded-full overflow-hidden">
+                <div className="w-6 h-6 rounded-full overflow-hidden bg-muted flex items-center justify-center">
+                  {currentUser.avatar ? (
                   <Image
                     src={currentUser.avatar}
                     alt={currentUser.name}
                     width={24}
                     height={24}
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                    // Hide image on error, show fallback
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const fallback = target.nextElementSibling as HTMLElement;
+                    if (fallback) fallback.style.display = 'flex';
+                    }}
                   />
+                  ) : null}
+                  {/* Fallback: First letter of name */}
+                  <span
+                  style={{
+                    display: currentUser.avatar ? 'none' : 'flex',
+                  }}
+                  className="w-full h-full items-center justify-center text-base font-semibold text-muted-foreground"
+                  >
+                  {currentUser.name?.charAt(0).toUpperCase() || '?'}
+                  </span>
                 </div>
                 <ChevronDown className="w-4 h-4 text-muted-foreground" />
               </Button>

@@ -4,20 +4,9 @@ import { GoogleLogin } from '@react-oauth/google';
 import { useToast } from '@/components/ui/use-toast';
 import { useChatStore } from '@/lib/store/chat-store';
 
-export function GoogleLoginButton({ isLoading: propLoading }: { isLoading?: boolean } = {}) {
+export function GoogleLoginButton() {
   const toast = useToast();
   const googleLogin = useChatStore((s) => s.googleLogin);
-  const storeLoading = useChatStore((s) => s.isLoading);
-  const loading = propLoading ?? storeLoading;
-
-  if (loading) {
-    return (
-      <button className="w-full h-11 bg-[var(--primary)] text-[var(--primary-foreground)] rounded-md font-medium flex items-center justify-center" disabled>
-        <div className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin mr-2" />
-        Signing in...
-      </button>
-    );
-  }
 
   return (
     <GoogleLogin
