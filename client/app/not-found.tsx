@@ -30,7 +30,7 @@ export default function NotFound() {
               </Link>
             </Button>
             <Button variant="outline" asChild className="w-full">
-              <Link href="/authenticated/chat" className="flex items-center justify-center gap-2">
+              <Link href="/chat" className="flex items-center justify-center gap-2">
                 <MessageCircle className="h-4 w-4" />
                 Go to Chat
               </Link>

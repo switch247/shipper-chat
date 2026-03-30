@@ -6,13 +6,15 @@
     // See also https://aka.ms/tsconfig/module
     "module": "nodenext",
     "target": "esnext",
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
+    "moduleResolution": "node",
     "paths": {
       "@/*": ["src/*"]
     },
     "rootDir": ".",
     "outDir": "dist",
-    "types": [],
+    "types": ["node"],
     // For nodejs:
     // "lib": ["esnext"],
     // "types": ["node"],

@@ -6,7 +6,8 @@ import dotenv from 'dotenv';
 import authRoutes from '@/auth/auth.routes.js';
 import chatRoutes from '@/chat/chat.routes';
 import aiRoutes from '@/ai/ai.routes';
-import { socketHandler } from '@/chat/socket.manager';
+import { socketHandler, ensureBotOnline } from '@/chat/socket.manager';
+import { setIo } from '@/chat/socket.server';
 
 dotenv.config();
 
@@ -31,6 +32,11 @@ app.use('/ai', aiRoutes);
 io.on('connection', (socket) => {
   socketHandler(io, socket);
 });
+
+// Ensure bot user is present and marked online
+ensureBotOnline(io).catch((err: any) => console.error('Failed to ensure bot online:', err));
+// Make io available to other modules
+setIo(io);
 
 const PORT = process.env.PORT || 3001;
 

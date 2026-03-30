@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { User, Message, ChatSession } from "../types";
 import { apiClient } from "../api/client";
+import { toast } from '@/hooks/use-toast';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -76,9 +77,9 @@ export const useChatStore = create<ChatStore>()(
       // Auth actions
       login: async (email: string, password: string) => {
         try {
+          set({ isLoading: true });
           const response = await apiClient.login(email, password);
           if (response.success && response.data) {
-            // Store token in localStorage
             if (typeof window !== 'undefined' && response.data.token) {
               localStorage.setItem('auth_token', response.data.token);
             }
@@ -87,19 +88,25 @@ export const useChatStore = create<ChatStore>()(
               currentUser: response.data.user,
             });
           } else {
-            throw new Error(response.error || 'Login failed');
+            const msg = response.error || 'Login failed';
+            toast({ title: 'Login failed', description: String(msg).split('\n')[0], variant: 'destructive' });
+            throw new Error(msg);
           }
         } catch (error) {
           console.error("Login failed:", error);
+          const message = error instanceof Error ? error.message : String(error);
+          toast({ title: 'Login failed', description: message.split('\n')[0], variant: 'destructive' });
           throw error;
+        } finally {
+          set({ isLoading: false });
         }
       },
 
       signup: async (name: string, email: string, password: string) => {
         try {
+          set({ isLoading: true });
           const response = await apiClient.signup(name, email, password);
           if (response.success && response.data) {
-            // Store token in localStorage
             if (typeof window !== 'undefined' && response.data.token) {
               localStorage.setItem('auth_token', response.data.token);
             }
@@ -108,18 +115,24 @@ export const useChatStore = create<ChatStore>()(
               currentUser: response.data.user,
             });
           } else {
-            throw new Error(response.error || 'Signup failed');
+            const msg = response.error || 'Signup failed';
+            toast({ title: 'Signup failed', description: String(msg).split('\n')[0], variant: 'destructive' });
+            throw new Error(msg);
           }
         } catch (error) {
           console.error("Signup failed:", error);
+          const message = error instanceof Error ? error.message : String(error);
+          toast({ title: 'Signup failed', description: message.split('\n')[0], variant: 'destructive' });
           throw error;
+        } finally {
+          set({ isLoading: false });
         }
       },
       googleLogin: async (token: string) => {
         try {
+          set({ isLoading: true });
           const response = await apiClient.googleLogin(token);
           if (response.success && response.data) {
-            // Store token in localStorage
             if (typeof window !== 'undefined' && response.data.token) {
               localStorage.setItem('auth_token', response.data.token);
             }
@@ -128,11 +141,17 @@ export const useChatStore = create<ChatStore>()(
               currentUser: response.data.user,
             });
           } else {
-            throw new Error(response.error || 'Google login failed');
+            const msg = response.error || 'Google login failed';
+            toast({ title: 'Google login failed', description: String(msg).split('\n')[0], variant: 'destructive' });
+            throw new Error(msg);
           }
         } catch (error) {
           console.error('Google login failed:', error);
+          const message = error instanceof Error ? error.message : String(error);
+          toast({ title: 'Google login failed', description: message.split('\n')[0], variant: 'destructive' });
           throw error;
+        } finally {
+          set({ isLoading: false });
         }
       },
 

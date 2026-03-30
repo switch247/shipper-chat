@@ -5,7 +5,7 @@ let socket: Socket | null = null;
 export const getSocket = () => {
   if (socket) return socket;
 
-  const url = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
+  const url = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
   // read the same auth token key used elsewhere
   const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
 

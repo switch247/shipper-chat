@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { streamText, generateText } from 'ai';
 import { google } from '@ai-sdk/google';
 import { prisma } from '@/lib/prisma';
+import { emitToConversation } from '@/chat/socket.server';
 import { authMiddleware } from '@/middleware/auth';
 
 const router = Router();
@@ -122,32 +123,9 @@ router.post('/chat', authMiddleware, async (req, res) => {
       }
     }
 
-    // If Gemini attempts all failed, try a fallback model (non-Google) so the feature remains usable.
     if (!aiText) {
-      const fallbackCandidates = ['gpt-4o-mini', 'gpt-4o'];
-      for (const fb of fallbackCandidates) {
-        try {
-          const result = await generateText({
-            model: fb as any,
-            system: 'You are a helpful logistics and shipping assistant for ShipperChat. Help users with cargo tracking, fleet management, and shipping paperwork.',
-            messages: messages as any,
-          });
-          if (result?.text) {
-            aiText = result.text;
-            break;
-          }
-        } catch (err) {
-          lastErr = err;
-          console.warn(`[AI] fallback model ${fb} failed:`, err?.message || err);
-          continue;
-        }
-      }
-    }
-
-    if (!aiText) {
-      console.error('[AI] All model attempts failed', lastErr);
-      // Provide actionable guidance to the operator
-      const guidance = 'Ensure your AI SDK and Google provider packages are up-to-date and set GEMINI_MODEL_PREFERRED to a supported Gemini 2.x model id (or provide OPENAI credentials to use a fallback model).';
+      console.error('[AI] All Gemini model attempts failed', lastErr);
+      const guidance = 'Set a valid Google AI Studio key in environment variable `GOOGLE_API_KEY` and/or set `GEMINI_MODEL_PREFERRED` to a supported model id from your Google AI Studio account.';
       console.error('[AI] Guidance:', guidance);
       throw lastErr || new Error('No AI model available. ' + guidance);
     }
@@ -177,6 +155,13 @@ router.post('/chat', authMiddleware, async (req, res) => {
         type: 'TEXT',
       },
     });
+
+    // Emit the bot message to the conversation so connected clients receive it in real-time
+    try {
+      emitToConversation(conversationId, 'receive_message', botMsg);
+    } catch (emitErr) {
+      console.warn('[AI] failed to emit bot message over socket', emitErr);
+    }
 
     return res.status(200).json(botMsg);
   } catch (error) {

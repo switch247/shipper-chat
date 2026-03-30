@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { GlobalSidebar } from '@/components/layout/GlobalSidebar';
 import { GlobalTopBar } from '@/components/layout/GlobalTopBar';
+import { usePresence } from '@/hooks/use-presence';
 
 export default function AuthenticatedLayout({
   children,
@@ -13,6 +14,7 @@ export default function AuthenticatedLayout({
 }) {
   const { isAuthenticated, checkAuth } = useAuth();
   const router = useRouter();
+  
 
   useEffect(() => {
     // Check authentication on mount
@@ -24,6 +26,9 @@ export default function AuthenticatedLayout({
       router.push('/auth/login');
     }
   }, [isAuthenticated, router]);
+
+  // Initialize socket presence using a dedicated hook
+  usePresence();
 
   if (!isAuthenticated) {
     return null;
