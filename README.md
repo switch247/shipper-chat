@@ -6,9 +6,8 @@ A modern, real-time chat application designed for logistics and shipping profess
 
 - **Real-time Messaging**: Instant messaging with WebSocket connections
 - **AI Assistant**: Integrated AI bot for logistics queries and support
-- **User Management**: Authentication, user profiles, and contact management
+- **Authentication**: Secure login with JWT refresh cookies, Google OAuth integration, and seamless React Google authentication
 - **Responsive Design**: Mobile-first design with collapsible panels
-- **Dark/Light Mode**: Theme switching with next-themes
 - **Modern UI**: Built with shadcn/ui components and Tailwind CSS
 
 ## 🛠️ Tech Stack
@@ -58,7 +57,6 @@ shipper-chat/
 │   └── public/            # Static assets
 ├── server/                 # Express.js backend
 │   ├── src/
-│   │   ├── ai/            # AI integration routes
 │   │   ├── auth/          # Authentication routes
 │   │   ├── chat/          # Chat routes
 │   │   └── lib/           # Database and utilities
