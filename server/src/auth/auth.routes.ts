@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
@@ -43,6 +44,7 @@ router.post('/login', async (req, res) => {
     
     if (user.password && (await bcrypt.compare(password, user.password))) {
       const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+      await createAndSetRefreshToken(user.id, res);
       return res.status(200).json({ token, user });
     }
     
@@ -63,12 +65,33 @@ router.post('/register', async (req, res) => {
     });
     
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    await createAndSetRefreshToken(user.id, res);
     return res.status(200).json({ token, user });
   } catch (error) {
     if ((error as any).code === 'P2002') return res.status(400).json({ error: 'User already exists' });
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+// Helper: create refresh token record and set httpOnly cookie
+async function createAndSetRefreshToken(userId: string, res: any) {
+  const token = crypto.randomBytes(40).toString('hex');
+  const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+  try {
+    await prisma.refreshToken.create({ data: { token, userId, expiresAt: expires } });
+  } catch (err) {
+    console.warn('Failed to persist refresh token', err);
+  }
+  const cookieOpts = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    // For cross-site refresh requests (e.g. from Vercel deployed client) we need 'none' and secure in production
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' as const : 'lax' as const,
+    expires,
+    path: '/',
+  };
+  res.cookie('refresh_token', token, cookieOpts);
+}
 
 // Google OAuth Login
 router.post('/google', async (req, res) => {
@@ -96,6 +119,7 @@ router.post('/google', async (req, res) => {
     }
 
     const jwtToken = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    await createAndSetRefreshToken(user.id, res);
     return res.status(200).json({ token: jwtToken, user });
   } catch (error) {
     console.error('[GoogleAuth] Error:', error);
@@ -103,7 +127,57 @@ router.post('/google', async (req, res) => {
   }
 });
 
-export default router;
+// Refresh token endpoint - rotates refresh token and issues new access token
+router.post('/refresh', async (req, res) => {
+  try {
+    const token = req.cookies?.refresh_token;
+    if (!token) return res.status(401).json({ error: 'No refresh token' });
+
+    const stored = await prisma.refreshToken.findUnique({ where: { token }, include: { user: true } });
+    if (!stored || stored.revoked || stored.expiresAt < new Date()) {
+      return res.status(401).json({ error: 'Invalid refresh token' });
+    }
+
+    // Revoke old token
+    await prisma.refreshToken.update({ where: { id: stored.id }, data: { revoked: true } });
+
+    // Create new refresh token (rotation)
+    const newToken = crypto.randomBytes(40).toString('hex');
+    const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await prisma.refreshToken.create({ data: { token: newToken, userId: stored.userId, expiresAt: expires } });
+    const cookieOpts = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as const,
+      expires,
+      path: '/',
+    };
+    res.cookie('refresh_token', newToken, cookieOpts);
+
+    const jwtToken = jwt.sign({ id: stored.user.id, email: stored.user.email }, JWT_SECRET, { expiresIn: '7d' });
+    return res.status(200).json({ token: jwtToken, user: stored.user });
+  } catch (err) {
+    console.error('[Auth Refresh] Error:', err);
+    return res.status(500).json({ error: 'Failed to refresh token' });
+  }
+});
+
+// Logout - revoke refresh token cookie and clear
+router.post('/logout', async (req, res) => {
+  try {
+    const token = req.cookies?.refresh_token;
+    if (token) {
+      await prisma.refreshToken.updateMany({ where: { token }, data: { revoked: true } });
+    }
+    res.clearCookie('refresh_token', { path: '/' });
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('[Auth Logout] Error:', err);
+    return res.status(500).json({ error: 'Failed to logout' });
+  }
+});
+
+// (export moved to end after all routes)
 
 // Authorization Code exchange (redirect flow)
 // NOTE: Keep this at the bottom so it doesn't conflict with existing routes above
@@ -146,3 +220,5 @@ router.post('/google/code', async (req, res) => {
     return res.status(500).json({ error: 'Auth failed' });
   }
 });
+
+export default router;

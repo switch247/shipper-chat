@@ -51,6 +51,8 @@ class ApiClient {
         ...options,
         headers,
         signal: controller.signal,
+        // include cookies for refresh token flow
+        credentials: 'include',
       });
 
       clearTimeout(timeoutId);
@@ -133,6 +135,14 @@ class ApiClient {
 
   async getCurrentUser() {
     return this.get('/auth/me');
+  }
+
+  async refresh() {
+    return this.post('/auth/refresh');
+  }
+
+  async logout() {
+    return this.post('/auth/logout');
   }
 
   async getUsers() {

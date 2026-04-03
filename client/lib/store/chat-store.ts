@@ -35,7 +35,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string) => Promise<void>;
   googleLogin: (token: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   setCurrentUser: (user: User) => void;
   checkAuth: () => Promise<void>;
 }
@@ -202,20 +202,53 @@ export const useChatStore = create<ChatStore>()(
               authChecked: true,
               currentUser: null,
             });
+            // Try refreshing via cookie if available
+            try {
+              const refreshed = await apiClient.refresh();
+              if (refreshed.success && refreshed.data) {
+                const data = refreshed.data as any;
+                if (data.token) localStorage.setItem('auth_token', data.token);
+                const user = data.user || (data as any).user;
+                set({ isAuthenticated: true, authChecked: true, currentUser: user });
+                return;
+              }
+            } catch (err) {
+              // ignore
+            }
+
+            set({ isAuthenticated: false, authChecked: true, currentUser: null });
           }
         } catch (error) {
-          set({
-            isAuthenticated: false,
-            authChecked: true,
-            currentUser: null,
-          });
+          // On error, attempt refresh once
+          try {
+            const refreshed = await apiClient.refresh();
+            if (refreshed.success && refreshed.data) {
+              const data = refreshed.data as any;
+              if (data.token) localStorage.setItem('auth_token', data.token);
+              const user = data.user || (data as any).user;
+              set({ isAuthenticated: true, authChecked: true, currentUser: user });
+              return;
+            }
+          } catch (err) {
+            // ignore
+          }
+
+          set({ isAuthenticated: false, authChecked: true, currentUser: null });
         }
       },
-      logout: () => {
+      logout: async () => {
+        try {
+          // Ask server to clear/ revoke refresh token cookie
+          await apiClient.logout();
+        } catch (err) {
+          console.warn('Server logout failed', err);
+        }
+
         // Clear token from localStorage
         if (typeof window !== 'undefined') {
           localStorage.removeItem('auth_token');
         }
+
         set({
           isAuthenticated: false,
           currentUser: null,
@@ -523,16 +556,37 @@ export const useChatStore = create<ChatStore>()(
       onRehydrateStorage: () => (state) => {
         try {
           const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-          if (!token) {
-            // no token -> clear auth state
+          const tryRefresh = async () => {
+            try {
+              const refreshed = await apiClient.refresh();
+              if (refreshed.success && refreshed.data) {
+                const data = refreshed.data as any;
+                if (data.token) {
+                  localStorage.setItem('auth_token', data.token);
+                }
+                const user = data.user || (data as any).user;
+                set({ isAuthenticated: true, currentUser: user, authChecked: true });
+                return true;
+              }
+            } catch (err) {
+              // ignore
+            }
+            // refresh failed
+            localStorage.removeItem('auth_token');
             set({ isAuthenticated: false, currentUser: null, authChecked: true });
+            return false;
+          };
+
+          if (!token) {
+            // Try refresh via httpOnly cookie
+            tryRefresh();
             return;
           }
 
           if (isJwtExpired(token)) {
-            // token expired: clear stored token and state
+            // token expired: remove it and try refresh
             localStorage.removeItem('auth_token');
-            set({ isAuthenticated: false, currentUser: null, authChecked: true });
+            tryRefresh();
             return;
           }
 
