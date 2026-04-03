@@ -6,8 +6,31 @@ import * as chatApi from "../api/chat";
 import { joinConversation } from '@/lib/socket';
 import { toast } from '@/hooks/use-toast';
 
+// Helper: check JWT expiry (returns true if expired)
+function isJwtExpired(token: string | null) {
+  if (!token) return true;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return true;
+    const payload = parts[1];
+    // base64url decode
+    const padded = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = decodeURIComponent(atob(padded).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    const obj = JSON.parse(decoded);
+    if (!obj.exp) return false;
+    const exp = Number(obj.exp);
+    return Date.now() / 1000 > exp;
+  } catch (err) {
+    console.warn('Failed to parse token for expiry', err);
+    return true;
+  }
+}
+
 interface AuthState {
   isAuthenticated: boolean;
+  authChecked: boolean;
   currentUser: User | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string) => Promise<void>;
@@ -63,6 +86,7 @@ export const useChatStore = create<ChatStore>()(
     (set, get) => ({
       // Auth state
       isAuthenticated: false,
+      authChecked: false,
       currentUser: null,
 
       // Chat state
@@ -170,16 +194,19 @@ export const useChatStore = create<ChatStore>()(
             set({
               isAuthenticated: true,
               currentUser: user,
+              authChecked: true,
             });
           } else {
             set({
               isAuthenticated: false,
+              authChecked: true,
               currentUser: null,
             });
           }
         } catch (error) {
           set({
             isAuthenticated: false,
+            authChecked: true,
             currentUser: null,
           });
         }
@@ -491,6 +518,46 @@ export const useChatStore = create<ChatStore>()(
           isAuthenticated: state.isAuthenticated,
           currentUser: sanitizedUser,
         };
+      },
+      // After rehydration, validate stored token and refresh currentUser if needed
+      onRehydrateStorage: () => (state) => {
+        try {
+          const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+          if (!token) {
+            // no token -> clear auth state
+            set({ isAuthenticated: false, currentUser: null, authChecked: true });
+            return;
+          }
+
+          if (isJwtExpired(token)) {
+            // token expired: clear stored token and state
+            localStorage.removeItem('auth_token');
+            set({ isAuthenticated: false, currentUser: null, authChecked: true });
+            return;
+          }
+
+          // token valid: ensure we have currentUser; if not, fetch /auth/me
+          if (!get().currentUser) {
+            apiClient.getCurrentUser().then((resp) => {
+              if (resp.success && resp.data) {
+                const user = (resp.data as any).user || resp.data;
+                set({ isAuthenticated: true, currentUser: user, authChecked: true });
+              } else {
+                // server didn't accept token: clear
+                localStorage.removeItem('auth_token');
+                set({ isAuthenticated: false, currentUser: null, authChecked: true });
+              }
+            }).catch(() => {
+              localStorage.removeItem('auth_token');
+              set({ isAuthenticated: false, currentUser: null, authChecked: true });
+            });
+          } else {
+            // we have a user rehydrated — ensure flag is set
+            set({ isAuthenticated: true, authChecked: true });
+          }
+        } catch (err) {
+          console.warn('onRehydrateStorage error', err);
+        }
       },
     },
   ),

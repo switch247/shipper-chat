@@ -5,7 +5,8 @@ import { OAuth2Client } from 'google-auth-library';
 import { prisma } from '../lib/prisma.js';
 import {authMiddleware} from '../middleware/auth.js';
 const router = Router();
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+// Construct OAuth2Client with client secret to allow code exchange
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Get current user info
@@ -103,3 +104,45 @@ router.post('/google', async (req, res) => {
 });
 
 export default router;
+
+// Authorization Code exchange (redirect flow)
+// NOTE: Keep this at the bottom so it doesn't conflict with existing routes above
+router.post('/google/code', async (req, res) => {
+  const { code, redirectUri } = req.body;
+
+  if (!code || !redirectUri) return res.status(400).json({ error: 'Missing code or redirectUri' });
+
+  try {
+    // Exchange code for tokens
+    const tokenResponse = await client.getToken({ code, redirect_uri: redirectUri });
+    const tokens = tokenResponse.tokens as any;
+
+    const idToken = tokens.id_token;
+    if (!idToken) return res.status(400).json({ error: 'No id_token returned from provider' });
+
+    const ticket = await client.verifyIdToken({ idToken, audience: process.env.GOOGLE_CLIENT_ID as string }) as any;
+    const payload = ticket.getPayload();
+    if (!payload?.email) return res.status(400).json({ error: 'Auth failed' });
+
+    let user = await prisma.user.findUnique({ where: { email: payload.email } });
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email: payload.email,
+          name: payload.name || 'User',
+          avatar: payload.picture,
+          googleId: payload.sub,
+        },
+      });
+    }
+
+    // Note: tokens.refresh_token may be present on first consent. We are not persisting it yet.
+
+    const jwtToken = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    return res.status(200).json({ token: jwtToken, user });
+  } catch (error) {
+    console.error('[GoogleCodeExchange] Error:', error);
+    return res.status(500).json({ error: 'Auth failed' });
+  }
+});

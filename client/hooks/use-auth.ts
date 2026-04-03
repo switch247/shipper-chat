@@ -4,6 +4,7 @@ export function useAuth() {
   const store = useChatStore();
   return {
     isAuthenticated: store.isAuthenticated,
+    authChecked: store.authChecked,
     currentUser: store.currentUser,
     isLoading: store.isLoading,
     login: store.login,

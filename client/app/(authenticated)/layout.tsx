@@ -12,7 +12,7 @@ export default function AuthenticatedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, checkAuth } = useAuth();
+  const { isAuthenticated, checkAuth, authChecked } = useAuth();
   const router = useRouter();
   
 
@@ -22,15 +22,15 @@ export default function AuthenticatedLayout({
   }, [checkAuth]);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (authChecked && !isAuthenticated) {
       router.push('/auth/login');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, authChecked, router]);
 
   // Initialize socket presence using a dedicated hook
   usePresence();
 
-  if (!isAuthenticated) {
+  if (!authChecked || !isAuthenticated) {
     return null;
   }
 
