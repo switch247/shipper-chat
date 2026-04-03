@@ -1,37 +1,21 @@
 import { User, ChatSession, Message, ContactInfo } from '../types';
 import * as mocks from '../mocks/data';
+import { apiClient } from './client';
 
+// Allow enabling mocks via environment variable
 const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK_MODE === 'true';
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-async function authenticatedFetch(url: string, options: RequestInit = {}) {
-  if (MOCK_MODE) return null; // Logic will switch to mock call below
-  const token = localStorage.getItem('auth_token');
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    ...options.headers,
-  };
-
-  const response = await fetch(`${API_BASE_URL}${url}`, {
-    ...options,
-    headers,
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'API Request failed');
-  }
-
-  return response.json();
-}
+// Use shared apiClient for consistent headers/retries/timeouts
+// apiClient lives in ./client and exposes typed methods returning { data, success, error }
 
 /**
  * Get all users for the chat sidebar
  */
 export async function getUsers(): Promise<User[]> {
   if (MOCK_MODE) return [mocks.CURRENT_USER, ...mocks.MOCK_USERS];
-  return authenticatedFetch('/chat/users'); 
+  const resp = await apiClient.getUsers();
+  if (!resp.success) throw new Error(resp.error || 'Failed to fetch users');
+  return resp.data || [];
 }
 
 /**
@@ -39,7 +23,9 @@ export async function getUsers(): Promise<User[]> {
  */
 export async function getChatSessions(): Promise<ChatSession[]> {
   if (MOCK_MODE) return mocks.MOCK_USERS.map((_, index) => mocks.createChatSession(mocks.MOCK_USERS[index].id, index));
-  return authenticatedFetch('/chat/conversations');
+  const resp = await apiClient.getChatSessions();
+  if (!resp.success) throw new Error(resp.error || 'Failed to fetch chat sessions');
+  return resp.data || [];
 }
 
 /**
@@ -47,7 +33,9 @@ export async function getChatSessions(): Promise<ChatSession[]> {
  */
 export async function getChatMessages(chatId: string): Promise<Message[]> {
   if (MOCK_MODE) return mocks.createChatSession(chatId, 0).messages;
-  return authenticatedFetch(`/chat/messages/${chatId}`);
+  const resp = await apiClient.getChatMessages(chatId);
+  if (!resp.success) throw new Error(resp.error || 'Failed to fetch chat messages');
+  return resp.data || [];
 }
 
 /**
@@ -60,11 +48,10 @@ export async function sendMessage(chatId: string, content: string): Promise<Mess
     content,
     timestamp: new Date(),
     read: false,
-  };
-  return authenticatedFetch('/chat/messages', {
-    method: 'POST',
-    body: JSON.stringify({ conversationId: chatId, content }),
-  });
+  } as any;
+  const resp = await apiClient.sendMessage(chatId, content);
+  if (!resp.success) throw new Error(resp.error || 'Failed to send message');
+  return resp.data as Message;
 }
 
 /**
@@ -72,9 +59,8 @@ export async function sendMessage(chatId: string, content: string): Promise<Mess
  */
 export async function markMessageAsRead(messageId: string): Promise<void> {
   if (MOCK_MODE) return;
-  return authenticatedFetch(`/chat/messages/${messageId}/read`, {
-    method: 'PATCH',
-  });
+  const resp = await apiClient.put(`/chat/messages/${messageId}/read` as any);
+  if (!resp.success) throw new Error(resp.error || 'Failed to mark message as read');
 }
 
 /**
@@ -85,7 +71,9 @@ export async function getContactInfoForUser(userId: string): Promise<ContactInfo
     const user = mocks.MOCK_USERS.find(u => u.id === userId) || mocks.MOCK_USERS[0];
     return mocks.getContactInfo(user);
   }
-  return authenticatedFetch(`/chat/users/${userId}/contact-info`);
+  const resp = await apiClient.getContactInfo(userId);
+  if (!resp.success) throw new Error(resp.error || 'Failed to fetch contact info');
+  return resp.data as ContactInfo;
 }
 
 /**
@@ -93,7 +81,9 @@ export async function getContactInfoForUser(userId: string): Promise<ContactInfo
  */
 export async function startAIConversation(): Promise<any> {
   if (MOCK_MODE) return null;
-  return authenticatedFetch('/ai/start', { method: 'POST' });
+  const resp = await apiClient.post('/ai/start');
+  if (!resp.success) throw new Error(resp.error || 'Failed to start AI conversation');
+  return resp.data;
 }
 
 /**
@@ -101,17 +91,34 @@ export async function startAIConversation(): Promise<any> {
  */
 export async function archiveChat(chatId: string): Promise<void> {
   if (MOCK_MODE) return;
-  return authenticatedFetch(`/chat/conversations/${chatId}/archive`, {
-    method: 'PATCH',
-  });
+  const resp = await apiClient.put(`/chat/conversations/${chatId}/archive` as any);
+  if (!resp.success) throw new Error(resp.error || 'Failed to archive chat');
 }
 
 /**
  * AI Chat interaction
  */
 export async function sendAIMessage(chatId: string, content: string): Promise<Message> {
-  return authenticatedFetch('/ai/chat', {
-    method: 'POST',
-    body: JSON.stringify({ conversationId: chatId, content }),
-  });
+  const resp = await apiClient.post('/ai/chat', { conversationId: chatId, content });
+  if (!resp.success) throw new Error(resp.error || 'Failed to send AI message');
+  return resp.data as Message;
+}
+
+/**
+ * Create a 1:1 conversation (or return existing) with a participant
+ * Returns an object shaped like an ApiResponse for parity with other callers
+ */
+export async function createConversation(participantId: string, name?: string): Promise<{ success: boolean; data?: ChatSession; error?: string }> {
+  try {
+    if (MOCK_MODE) {
+      const index = mocks.MOCK_USERS.findIndex(u => u.id === participantId);
+      const session = mocks.createChatSession(participantId, index >= 0 ? index : 0);
+      return { success: true, data: session };
+    }
+    // Use the shared apiClient which returns a normalized ApiResponse<T>
+    const resp = await apiClient.createConversation(participantId, name);
+    return { success: resp.success, data: resp.data as ChatSession, error: resp.error };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to create conversation' };
+  }
 }

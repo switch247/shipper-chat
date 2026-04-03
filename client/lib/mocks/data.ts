@@ -209,8 +209,8 @@ export const CONTACT_LINKS: Link[] = [
   },
   {
     id: '2',
-    title: 'https://chatflow.com/',
-    url: 'https://chatflow.com',
+    title: 'https://shipperchat.com/',
+    url: 'https://shipperchat.com',
   },
   {
     id: '3',

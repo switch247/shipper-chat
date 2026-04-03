@@ -70,13 +70,13 @@ export default function SignupPage() {
             <div className="w-10 h-10 rounded-lg bg-[var(--primary)] flex items-center justify-center">
               <MessageSquare className="w-6 h-6 text-[var(--primary-foreground)]" />
             </div>
-            <span className="text-xl font-bold text-foreground">ChatFlow</span>
+            <span className="text-xl font-bold text-foreground">ShipperChat</span>
           </div>
 
           {/* Headline */}
           <div className="mb-8">
             <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">
-              Join ChatFlow
+              Join ShipperChat
             </h1>
             <p className="text-muted-foreground">
               Start connecting with your team in seconds.
@@ -236,7 +236,7 @@ export default function SignupPage() {
               Communication made simple
             </h2>
             <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-              Join thousands of teams already using ChatFlow to streamline their workflow and boost productivity.
+              Join thousands of teams already using ShipperChat to streamline their workflow and boost productivity.
             </p>
 
             {/* Checklist */}
@@ -260,7 +260,7 @@ export default function SignupPage() {
         <div className="border-t border-border pt-8">
           <blockquote className="mb-4">
             <p className="text-sm italic text-muted-foreground mb-2">
-              "ChatFlow transformed how our team communicates. We've cut our email clutter by 80% and collaboration has never been better."
+              "ShipperChat transformed how our team communicates. We've cut our email clutter by 80% and collaboration has never been better."
             </p>
             <footer className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-muted" />

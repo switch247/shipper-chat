@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { User, Message, ChatSession } from "../types";
 import { apiClient } from "../api/client";
+import * as chatApi from "../api/chat";
+import { joinConversation } from '@/lib/socket';
 import { toast } from '@/hooks/use-toast';
 
 interface AuthState {
@@ -20,6 +22,7 @@ interface ChatStore extends AuthState {
   chatSessions: ChatSession[];
   allUsers: User[];
   onlineUsers: Set<string>;
+  aiTyping: Record<string, boolean>;
   messages: Record<string, Message[]>;
   showContactPanel: boolean;
   showNewMessageModal: boolean;
@@ -45,6 +48,7 @@ interface ChatStore extends AuthState {
   setLoading: (loading: boolean) => void;
   markUserOnline: (userId: string) => void;
   markUserOffline: (userId: string) => void;
+  setAiTyping: (conversationId: string, typing: boolean) => void;
 
   // API Actions
   loadChatSessions: () => Promise<void>;
@@ -67,6 +71,7 @@ export const useChatStore = create<ChatStore>()(
       allUsers: [],
       onlineUsers: new Set(),
       messages: {},
+      aiTyping: {},
       showContactPanel: false,
       showNewMessageModal: false,
       swipedChatId: null,
@@ -155,13 +160,16 @@ export const useChatStore = create<ChatStore>()(
         }
       },
 
+      // Normalize currentUser shape coming from the API (some endpoints return { user: {...} })
       checkAuth: async () => {
         try {
           const response = await apiClient.getCurrentUser();
           if (response.success && response.data) {
+            // API may return { user: { ... } } or the user object directly
+            const user = (response.data as any).user || response.data;
             set({
               isAuthenticated: true,
-              currentUser: response.data,
+              currentUser: user,
             });
           } else {
             set({
@@ -190,7 +198,11 @@ export const useChatStore = create<ChatStore>()(
         });
       },
 
-      setCurrentUser: (user) => set({ currentUser: user }),
+      setCurrentUser: (user) => {
+        // Accept either { user: {...} } or user object and normalize
+        const normalized = (user as any)?.user || user || null;
+        set({ currentUser: normalized });
+      },
 
       setSelectedChat: (chatId) => set({ selectedChatId: chatId }),
 
@@ -209,10 +221,29 @@ export const useChatStore = create<ChatStore>()(
         set((state) => {
           // 1. Update the message record
           const existing = state.messages[chatId] || [];
-          const updatedMessages = {
-            ...state.messages,
-            [chatId]: [...existing, message],
-          };
+
+          // If message already exists by id, replace it
+          const alreadyIndex = existing.findIndex((m) => m.id === message.id);
+          let newMessages;
+          if (alreadyIndex !== -1) {
+            const copy = [...existing];
+            copy[alreadyIndex] = message;
+            newMessages = copy;
+          } else {
+            // Try to replace an optimistic message (numeric id) that matches sender+content
+            const optimisticIndex = existing.findIndex(
+              (m) => typeof m.id === 'string' && /^\d+$/.test(m.id) && m.senderId === message.senderId && m.content === message.content
+            );
+            if (optimisticIndex !== -1) {
+              const copy = [...existing];
+              copy[optimisticIndex] = message;
+              newMessages = copy;
+            } else {
+              newMessages = [...existing, message];
+            }
+          }
+
+          const updatedMessages = { ...state.messages, [chatId]: newMessages };
 
           // 2. Update the session list (lastMessage and order)
           const updatedSessions = [...state.chatSessions];
@@ -223,12 +254,14 @@ export const useChatStore = create<ChatStore>()(
           if (sessionIndex !== -1) {
             const session = { ...updatedSessions[sessionIndex] };
             session.lastMessage = message;
-            // If message is from others and we are not in this chat, increment unread (basic logic)
-            if (
-              message.senderId !== state.currentUser?.id &&
-              chatId !== state.selectedChatId
-            ) {
-              session.unreadCount = (session.unreadCount || 0) + 1;
+            // If message is marked read (server-side or optimistic for bot), clear unread count
+            if (message.read) {
+              session.unreadCount = 0;
+            } else {
+              // If message is from others and we are not in this chat, increment unread (basic logic)
+              if (message.senderId !== state.currentUser?.id && chatId !== state.selectedChatId) {
+                session.unreadCount = (session.unreadCount || 0) + 1;
+              }
             }
 
             // Remove and insert at top
@@ -244,6 +277,10 @@ export const useChatStore = create<ChatStore>()(
 
       toggleContactPanel: () =>
         set((state) => ({ showContactPanel: !state.showContactPanel })),
+
+      // AI typing state
+      setAiTyping: (conversationId: string, typing: boolean) =>
+        set((state) => ({ aiTyping: { ...state.aiTyping, [conversationId]: typing } })),
 
       setContactPanelVisible: (visible) => set({ showContactPanel: visible }),
 
@@ -312,10 +349,31 @@ export const useChatStore = create<ChatStore>()(
           }));
           const response = await apiClient.getChatMessages(chatId);
           if (response.success) {
+            // Persist fetched messages
+            const fetched = response.data || [];
             set((state) => ({
-              messages: { ...state.messages, [chatId]: response.data || [] },
+              messages: { ...state.messages, [chatId]: fetched },
               isLoadingMessages: { ...state.isLoadingMessages, [chatId]: false },
             }));
+
+            // After loading, mark unread messages (from others) as read
+            const currentUserId = get().currentUser?.id;
+            if (currentUserId) {
+              const unread = (fetched || []).filter((m: any) => !m.read && m.senderId !== currentUserId);
+              if (unread.length > 0) {
+                try {
+                  await Promise.all(unread.map((m: any) => chatApi.markMessageAsRead(m.id)));
+                  // Update local messages to mark as read and clear unread counts for session
+                  set((state) => {
+                    const updatedMessages = (state.messages[chatId] || []).map((mm: any) => unread.find(u => u.id === mm.id) ? { ...mm, read: true, readAt: new Date() } : mm);
+                    const updatedSessions = (state.chatSessions || []).map((s) => s.id === chatId ? { ...s, unreadCount: 0 } : s);
+                    return { messages: { ...state.messages, [chatId]: updatedMessages }, chatSessions: updatedSessions };
+                  });
+                } catch (err) {
+                  console.warn('[chat-store] failed to mark messages read:', err);
+                }
+              }
+            }
           } else {
             throw new Error(response.error || 'Failed to load chat messages');
           }
@@ -335,12 +393,17 @@ export const useChatStore = create<ChatStore>()(
           // If this is a temp/new conversation id, create the conversation first
           if (chatId.startsWith('new-')) {
             const userId = chatId.replace('new-', '');
-            const resp = await apiClient.createConversation(userId);
+            const resp = await chatApi.createConversation(userId);
+            console.debug('[chat-store] createConversation response', resp);
             if (resp.success && resp.data) {
-                conversationId = resp.data.id;
-                // select the newly created conversation and reload sessions
-                set({ selectedChatId: conversationId });
-                await get().loadChatSessions();
+              const session = resp.data as ChatSession;
+              conversationId = session.id;
+              // select the newly created conversation and insert it into sessions locally
+              set((state) => ({
+                selectedChatId: conversationId,
+                chatSessions: [session as ChatSession, ...(state.chatSessions || [])],
+                messages: { ...state.messages, [conversationId]: session.messages || [] },
+              }));
             } else {
               throw new Error(resp.error || 'Failed to create conversation');
             }
@@ -355,12 +418,16 @@ export const useChatStore = create<ChatStore>()(
               emitSendMessage({ senderId, conversationId, content, type: 'TEXT' });
 
               // optimistic local update
+              // If this conversation is with the bot, mark optimistic messages as read locally
+              const session = get().chatSessions?.find((s: any) => s.id === conversationId || s.participantId === conversationId || s.participant?.id === conversationId);
+              const toBot = session && (session.participantId === 'bot-assistant' || session.participant?.id === 'bot-assistant');
               const optimisticMessage = {
                 id: Date.now().toString(),
                 senderId,
                 content,
                 timestamp: new Date(),
-                read: false,
+                read: !!toBot,
+                readAt: toBot ? new Date() : undefined,
               } as any;
               get().addMessage(conversationId, optimisticMessage);
               return;
@@ -384,12 +451,17 @@ export const useChatStore = create<ChatStore>()(
 
       createConversation: async (participantId: string, name?: string) => {
         try {
-          const response = await apiClient.createConversation(participantId, name);
+          const response = await chatApi.createConversation(participantId, name);
+          console.debug('[chat-store] createConversation (explicit) response', response);
           if (response.success && response.data) {
-            // Reload sessions to include the new conversation
-            await get().loadChatSessions();
-            // Select the new conversation
-            set({ selectedChatId: response.data.id });
+            const session = response.data as ChatSession;
+            // Insert the new conversation into local sessions and select it
+            set((state) => ({
+              chatSessions: [session as ChatSession, ...(state.chatSessions || [])],
+              selectedChatId: session.id,
+              messages: { ...state.messages, [session.id]: session.messages || [] },
+            }));
+            try { joinConversation(session.id); } catch (err) { console.warn('joinConversation failed', err); }
           } else {
             throw new Error(response.error || 'Failed to create conversation');
           }
@@ -402,11 +474,24 @@ export const useChatStore = create<ChatStore>()(
     {
       name: "chat-store",
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        selectedChatId: state.selectedChatId,
-        searchQuery: state.searchQuery,
-        showContactPanel: state.showContactPanel,        isAuthenticated: state.isAuthenticated,
-        currentUser: state.currentUser,      }),
+      partialize: (state) => {
+        // Persist only a subset of the store:
+        // - messages and users: useful to cache recent data
+        // - ui flags: searchQuery, showContactPanel
+        // - aiTyping map
+        // Do NOT persist chatSessions (conversations) or any auth tokens.
+        const sanitizedUser = state.currentUser ? { ...state.currentUser } : null;
+        if (sanitizedUser && (sanitizedUser as any).token) delete (sanitizedUser as any).token;
+        return {
+          // Do NOT persist messages or chatSessions to avoid stale/large state
+          allUsers: state.allUsers,
+          aiTyping: state.aiTyping,
+          searchQuery: state.searchQuery,
+          showContactPanel: state.showContactPanel,
+          isAuthenticated: state.isAuthenticated,
+          currentUser: sanitizedUser,
+        };
+      },
     },
   ),
 );

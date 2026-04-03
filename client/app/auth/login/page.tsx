@@ -88,7 +88,7 @@ export default function LoginPage() {
             <div className="w-10 h-10 rounded-lg bg-[var(--primary)] flex items-center justify-center">
               <MessageSquare className="w-6 h-6 text-[var(--primary-foreground)]" />
             </div>
-            <span className="text-xl font-bold text-foreground">ChatFlow</span>
+            <span className="text-xl font-bold text-foreground">ShipperChat</span>
           </div>
 
           {/* Headline */}

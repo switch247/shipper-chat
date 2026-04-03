@@ -9,7 +9,6 @@ import { ContactInfoPanel } from '@/components/chat/ContactInfoPanel';
 import { NewMessageModal } from '@/components/chat/NewMessageModal';
 import { ContactInfo } from '@/lib/types';
 import { getContactInfoForUser, getUsers } from '@/lib/api/chat';
-import { CURRENT_USER } from '@/lib/mocks/data';
 
 export default function ChatPage() {
   const store = useChatStore();
@@ -82,30 +81,46 @@ export default function ChatPage() {
 
   if (!selectedChatId) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <p className="text-muted-foreground text-lg">Select a conversation to start messaging</p>
+      <div className="flex-1 flex flex-col bg-white overflow-hidden">
+        <div className="flex-1 overflow-y-auto p-6 bg-[#F3F3EE] rounded-2xl flex items-center justify-center">
+          <div className="w-full max-w-3xl text-center px-6">
+            <p className="text-sm text-[#596881] mb-2">No conversation selected</p>
+            <p className="text-lg font-medium text-[#111625]">Select a conversation to start messaging</p>
+          </div>
         </div>
       </div>
     );
   }
 
-  const chatSession = store.chatSessions.find(session => session.id === selectedChatId);
-  const participant = chatSession?.participant || {
-    id: selectedChatId || '',
-    name: 'Unknown User',
-    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedChatId}`,
-    email: 'user@example.com',
-    status: 'offline' as const,
-  };
+  // Try to find the session by conversation id OR by participant id (handles mock vs real API shape)
+  const chatSession = store.chatSessions.find(session => session.id === selectedChatId || session.participantId === selectedChatId || session.participant?.id === selectedChatId);
+  const participant = chatSession?.participant;
+
+  // If there's no participant (IDs mismatch or no session), render the MessageList area
+  // (no header or input) so the right pane matches the regular chat view sizing.
+  if (!participant) {
+    return (
+      <div className="flex-1 flex flex-col bg-white overflow-hidden">
+        <MessageList
+            messages={[]}
+            currentUserId={store.currentUser?.id || ''}
+            emptyText="Select a conversation to start messaging"
+          />
+      </div>
+    );
+  }
+
+  // Use participant.id (user id) for online lookups; fallback to selectedChatId for messages map
+  const participantIdForOnline = chatSession?.participant?.id || participant.id || selectedChatId || '';
+  const messageKey = chatSession?.id || selectedChatId || participantIdForOnline;
 
   return (
-    <div className=" rounded-2xl p-4 flex-1 flex flex-col bg-white overflow-hidden">
+    <div className=" rounded-2xl p-4 flex-1 flex flex-col bg-white overflow-hidden min-h-0">
       {/* <div className=" rounded-2xl flex-1 flex flex-col h-full"> */}
 
       <ChatHeader
         user={participant}
-        isOnline={store.onlineUsers.has(selectedChatId || '')}
+        isOnline={store.onlineUsers.has(participantIdForOnline)}
         onContactInfoClick={handleContactInfoClick}
         onMenuAction={(action) => {
           if (action === 'contact-info') {
@@ -114,15 +129,18 @@ export default function ChatPage() {
         }}
       />
       <MessageList
-        messages={currentMessages}
-        currentUserId={CURRENT_USER.id}
+        messages={store.messages[messageKey] || currentMessages}
+        isLoading={Boolean(store.isLoadingMessages[messageKey])}
+        emptyText="No messages yet. Send the first message."
+        currentUserId={store.currentUser?.id || ''}
       />
       <ChatInput onSendMessage={handleSendMessage} />
       {/* </div > */}
 
-      {store.showContactPanel && contactInfo && (
+      {contactInfo && (
         <ContactInfoPanel
           contactInfo={contactInfo}
+          isOpen={Boolean(store.showContactPanel)}
           onClose={() => store.setContactPanelVisible(false)}
         />
       )}
@@ -131,10 +149,15 @@ export default function ChatPage() {
         open={store.showNewMessageModal}
         onOpenChange={store.setShowNewMessageModal}
         users={allUsers}
-        currentUserId={CURRENT_USER.id}
-        onSelectUser={(userId) => {
-          store.setSelectedChat(userId);
-          store.setShowNewMessageModal(false);
+        currentUserId={store.currentUser?.id || ''}
+        onSelectUser={async (userId) => {
+          try {
+            await store.createConversation(userId);
+          } catch (error) {
+            console.error('Failed to create conversation from NewMessageModal:', error);
+          } finally {
+            store.setShowNewMessageModal(false);
+          }
         }}
       />
     </div>

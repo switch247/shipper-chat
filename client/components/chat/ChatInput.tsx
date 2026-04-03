@@ -35,26 +35,26 @@ export function ChatInput({ onSendMessage, disabled = false }: ChatInputProps) {
   };
 
   return (
-    <div className="px-1 py-2 bg-white flex gap-3 items-center shrink-0 rounded-lg relative">
+    <div className="flex pt-2 items-center gap-3 w-full">
       <div className="flex-1 relative">
         <Input
-          placeholder="Type any message..."
+          placeholder="Write a message..."
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyPress={handleKeyPress}
           disabled={disabled}
-          className="flex-1 h-10 px-4 pr-32 rounded-full border border-input text-foreground placeholder:text-muted-foreground"
+          className="w-full rounded-[100px] border border-[#E8E5DF] h-10 pl-4 pr-1 py-3 text-xs placeholder:text-[#8796AF]"
         />
 
         {/* Tooltips positioned inside the input field on the right */}
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                  className="w-8 h-8 rounded-lg border border-[#E8E5DF] bg-white p-0 text-[#8796AF] hover:text-[#262626]"
                   onClick={() => toast.info('Attachments coming soon!')}
                 >
                   <Paperclip className="w-3 h-3" />
@@ -70,7 +70,7 @@ export function ChatInput({ onSendMessage, disabled = false }: ChatInputProps) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                  className="w-8 h-8 rounded-lg border border-[#E8E5DF] bg-white p-0 text-[#8796AF] hover:text-[#262626]"
                   onClick={() => toast.info('Voice messages coming soon!')}
                 >
                   <Mic className="w-3 h-3" />
@@ -86,7 +86,7 @@ export function ChatInput({ onSendMessage, disabled = false }: ChatInputProps) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                  className="w-8 h-8 rounded-lg border border-[#E8E5DF] bg-white p-0 text-[#8796AF] hover:text-[#262626]"
                   onClick={() => toast.info('Emoji picker coming soon!')}
                 >
                   <Smile className="w-3 h-3" />
@@ -102,9 +102,9 @@ export function ChatInput({ onSendMessage, disabled = false }: ChatInputProps) {
                 <Button
                   onClick={handleSend}
                   disabled={disabled || !message.trim()}
-                  className="h-6 w-6 p-0 bg-primary hover:bg-primary text-primary-foreground rounded-full flex-shrink-0"
+                  className="w-9 h-9 p-0 bg-[#1E9A80] hover:bg-[#167a63] text-white rounded-[100px] flex-shrink-0 flex items-center justify-center"
                 >
-                  <Send className="w-3 h-3" />
+                  <Send className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Send message</TooltipContent>

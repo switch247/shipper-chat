@@ -123,3 +123,33 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Utility to hide scrollbars across browsers */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}
+
+/* Extremely small scrollbar for compact UI */
+.tiny-scrollbar {
+  scrollbar-width: thin; /* Firefox */
+  -ms-overflow-style: auto; /* IE 10+ show thin */
+}
+.tiny-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.tiny-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tiny-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 116, 139, 0.6); /* slate-500 @ 60% */
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+.tiny-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}

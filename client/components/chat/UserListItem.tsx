@@ -47,6 +47,12 @@ export function UserListItem({
   const unreadCount = session?.unreadCount || 0;
   const sessionId = session?.id || (user?.id ? `new-${user.id}` : '');
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      console.debug('[UserListItem] render', { sessionId, displayUser: displayUser?.id, isSelected });
+    }
+  }, [sessionId, displayUser?.id, isSelected]);
+
   if (!displayUser || !displayUser.id || !displayUser.name) return null;
 
   const store = useChatStore();
@@ -103,37 +109,46 @@ export function UserListItem({
     store.setSwipedChatId(null);
   };
 
-  // Binary snapping logic: As soon as sliding starts, jump to 0.75 scale and full offset
+  // Keep item radius consistent with Figma
   const swipeActive = Math.abs(localSwipeX) > 5;
-  const cardScale = swipeActive ? 0.8 : 1.0;
-  const displayTranslateX = swipeActive ? (localSwipeX > 0 ? swipeLimit : -swipeLimit) : 0;
-  const cardRadius = swipeActive ? 'rounded-xl' : 'rounded-2xl';
+  const cardScale = 1.0;
+  const displayTranslateX = localSwipeX; // follow finger for natural reveal
+  const cardRadius = 'rounded-xl';
 
   return (
     <div
       ref={itemRef}
-      className="w-full overflow-hidden"
+      className="w-full relative overflow-hidden z-0 isolate"
     >
       {/* Action zones background container */}
       <div className="relative w-full group">
-        {/* Left action zone (Mark unread) */}
-        {localSwipeX > 5 && (
-          <div className="rounded-2xl absolute left-0 inset-y-0 w-1/6 flex items-center justify-center z-0 pointer-events-none bg-blue-500 text-white">
-            <MessageCircle className="w-4 h-3" />
-          </div>
-        )}
+        {/* Left action zone (Mark unread) - hidden behind content, revealed on right swipe */}
+        <div className="absolute left-0 inset-y-0 flex items-center pl-3 z-0 pointer-events-none">
+          <button
+            onClick={onMute}
+            className="cursor-pointer text-nowrap flex flex-col justify-center items-center gap-2 rounded-xl bg-[#1E9A80] w-16 h-16 text-white pointer-events-auto"
+            title="Mark unread"
+          >
+            <MessageCircle className="w-4 h-4" />
+            <span className="text-xs font-medium">Unread</span>
+          </button>
+        </div>
 
-        {/* Right action zone (Archive) */}
-        {localSwipeX < -5 && (
-          <div className="rounded-2xl absolute right-0 inset-y-0 w-1/6 flex items-center justify-center z-0 pointer-events-none bg-primary text-white">
-            <Archive className="w-4 h-3" />
-          </div>
-        )}
+        {/* Right action zone (Archive) - hidden behind content, revealed on left swipe */}
+        <div className="absolute right-0 inset-y-0 flex items-center pr-3 z-0 pointer-events-none">
+          <button
+            onClick={onArchive}
+            className="cursor-pointer text-nowrap flex flex-col justify-center items-center gap-2 rounded-xl bg-[#1E9A80] w-16 h-16 text-white pointer-events-auto"
+            title="Archive"
+          >
+            <Archive className="w-4 h-4" />
+            <span className="text-xs font-medium">Archive</span>
+          </button>
+        </div>
 
         {/* Swipeable Content */}
         <div
-          className={`${cardRadius} relative z-10 transition-all flex items-start gap-4 p-4 cursor-pointer select-none ${isSelected ? 'bg-input' : 'bg-white hover:bg-gray-100'
-            }`}
+          className={`${cardRadius} relative ${swipeActive ? 'z-20' : 'z-10'} transition-transform duration-150 ease-out cursor-pointer select-none ${isSelected ? 'bg-[#F3F3EE]' : 'bg-white hover:bg-[#F8F8F5]'} `}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -165,64 +180,67 @@ export function UserListItem({
             setLocalSwipeX(0);
             store.setSwipedChatId(null);
           }}
+          onClick={() => {
+            // only treat as click when not swiping
+            if (Math.abs(localSwipeX) < 8) onClick?.();
+          }}
           style={{
-            transform: `translateX(${displayTranslateX}px) scaleX(${cardScale})`,
+            transform: `translateX(${displayTranslateX}px)`,
             transformOrigin: localSwipeX > 0 ? 'left center' : 'right center',
-            transition: 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            willChange: 'transform',
           }}
         >
-          <button
-            onClick={onClick}
-            className="flex-1 flex gap-3 items-start"
-          >
-            {/* Avatar with online indicator */}
-            <div className="relative flex-shrink-0">
+          <div className="flex items-center gap-3 p-3">
+            <div className="flex justify-center items-center rounded-[1000px] bg-[#F7F9FB] w-10 h-10 overflow-hidden flex-shrink-0">
               <Image
-                src={typeof displayUser.avatar === 'string' && displayUser.avatar.trim() !== '' ? displayUser.avatar : '/placeholder-user.jpg'}
-                alt={displayUser.name || 'User avatar'}
-                width={48}
-                height={48}
-                className="w-12 h-12 rounded-full object-cover"
+                src={typeof displayUser.avatar === 'string' && displayUser.avatar.trim() !== '' ? displayUser.avatar : `/api/avatars/${displayUser.id}`}
+                alt={displayUser.name || 'image'}
+                width={40}
+                height={40}
+                className="shrink-0 rounded-[40px] w-10 h-10 max-w-none object-cover"
               />
-              {isUserOnline && (
-                <div className="absolute bottom-0 right-0 w-3 h-3 bg-[var(--online-status)] rounded-full border-2 border-white" />
-              )}
             </div>
 
-            {/* User info */}
-            <div className="flex-1 min-w-0 text-left">
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="font-semibold text-sm text-foreground truncate">
-                  {displayUser.name}
-                </h3>
-                {timeString && (
-                  <span className="text-xs text-muted-foreground flex-shrink-0">
-                    {timeString}
-                  </span>
-                )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2 min-w-0">
+                  <p onClick={() => { console.debug('[UserListItem] name click', { sessionId }); onClick?.(); }} className="text-[#111625] font-inter text-sm font-medium leading-5 tracking-[-0.006em] truncate" title={displayUser.name}>
+                    {displayUser.name}
+                  </p>
+                </div>
+                {timeString && <p className="text-[#596881] font-inter text-xs leading-4 flex-shrink-0">{timeString}</p>}
               </div>
-              <p className="text-xs text-muted-foreground truncate">
-                {messagePreview}
-              </p>
-            </div>
 
-            {/* Unread indicator */}
+              <div className="flex items-center justify-between mt-1">
+                <p onClick={() => { console.debug('[UserListItem] preview click', { sessionId }); onClick?.(); }} className="text-[#8B8B8B] text-xs line-clamp-1 truncate min-w-0">{messagePreview}</p>
+                {lastMessage && lastMessage.senderId === store.currentUser?.id ? (
+                  <span className="ml-2 flex-shrink-0">
+                    {lastMessage.read ? (
+                      <CheckCheck className="w-4 h-4 text-[#1E9A80]" />
+                    ) : (
+                      <Check className="w-4 h-4 text-[#8796AF]" />
+                    )}
+                  </span>
+                ) : null}
+              </div>
+            </div>
             {unreadCount > 0 && (
-              <div className="flex-shrink-0">
-                <div className="w-5 h-5 rounded-full bg-[var(--online-status)] flex items-center justify-center text-xs font-semibold text-white">
+              <div className="ml-3 flex-shrink-0">
+                <div className="w-6 h-6 rounded-full bg-[#1E9A80] flex items-center justify-center text-xs font-semibold text-white">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </div>
               </div>
             )}
-          </button>
+          </div>
+          </div>
 
           {/* Context Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="opacity-60 hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded flex-shrink-0">
-                <MoreVertical className="w-4 h-4 text-muted-foreground" />
-              </button>
-            </DropdownMenuTrigger>
+                  <button className="absolute right-3 top-3 z-20 opacity-0 group-hover:opacity-70 group-hover:pointer-events-auto pointer-events-none transition-opacity p-1 rounded bg-transparent" aria-label="More actions">
+                    <MoreVertical className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem onClick={onContactInfo}>
                 <Info className="w-4 h-4 mr-2" />
@@ -255,6 +273,6 @@ export function UserListItem({
           </DropdownMenu>
         </div>
       </div>
-    </div>
+    
   );
 }

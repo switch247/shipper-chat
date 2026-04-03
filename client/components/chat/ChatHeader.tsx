@@ -37,31 +37,29 @@ export function ChatHeader({
   onVideo,
   onMenuAction,
 }: ChatHeaderProps) {
-  const getAvatarSrc = (avatar: any) => {
-    if (!avatar) return '/placeholder-user.jpg';
+  const getAvatarSrc = (avatar: any, seed?: string) => {
+    if (!avatar) return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed || 'unknown'}`;
     if (typeof avatar === 'string') return avatar;
     if (typeof avatar === 'object' && 'src' in avatar) return String(avatar.src);
-    return '/placeholder-user.jpg';
+    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed || 'unknown'}`;
   };
   return (
-    <div className="flex items-center justify-between px-6 py-4 bg-background shrink-0">
+    <div className="flex items-center justify-between pt-1 pr-3 pb-4 pl-3 shrink-0">
       <div className="flex items-center gap-3">
         <Image
-          src={getAvatarSrc(user.avatar)}
+          src={getAvatarSrc(user.avatar, user.id)}
           alt={user.name || 'User avatar'}
           width={40}
           height={40}
-          className="w-10 h-10 rounded-full object-cover"
+          className="w-10 h-10 rounded-[1000px] object-cover"
         />
         <div>
-          <h2 className="font-semibold text-foreground">{user.name}</h2>
-          <p className="text-xs text-muted-foreground">
-            {isOnline ? 'Online' : 'Offline'}
-          </p>
+          <h2 title={user.name} className="text-sm font-medium text-[#111625] tracking-[-0.006em]">{user.name}</h2>
+          <p className="text-xs font-medium text-[#38C793]">{isOnline ? 'Online' : 'Offline'}</p>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -69,9 +67,9 @@ export function ChatHeader({
                 variant="ghost"
                 size="sm"
                 onClick={onSearch}
-                className="h-9 w-9 p-0 bg-gray-50 hover:bg-muted"
+                className="w-8 h-8 rounded-lg border border-[#E8E5DF] bg-white p-0"
               >
-                <Search className="w-5 h-5 text-foreground" />
+                <Search className="w-4 h-4 text-[#262626]" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Search messages</TooltipContent>
@@ -83,9 +81,9 @@ export function ChatHeader({
                 variant="ghost"
                 size="sm"
                 onClick={onCall}
-                className="h-9 w-9 p-0 bg-gray-50 hover:bg-muted"
+                className="w-8 h-8 rounded-lg border border-[#E8E5DF] bg-white p-0"
               >
-                <Phone className="w-5 h-5 text-foreground" />
+                <Phone className="w-4 h-4 text-[#262626]" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Voice call</TooltipContent>
@@ -97,9 +95,9 @@ export function ChatHeader({
                 variant="ghost"
                 size="sm"
                 onClick={onVideo}
-                className="h-9 w-9 p-0 bg-gray-50 hover:bg-muted"
+                className="w-8 h-8 rounded-lg border border-[#E8E5DF] bg-white p-0"
               >
-                <Video className="w-5 h-5 text-foreground" />
+                <Video className="w-4 h-4 text-[#262626]" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Video call</TooltipContent>
@@ -108,12 +106,8 @@ export function ChatHeader({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-9 w-9 p-0 bg-gray-50 hover:bg-muted"
-            >
-              <MoreVertical className="w-5 h-5 text-foreground" />
+            <Button className="w-8 h-8 rounded-lg border border-[#E8E5DF] bg-white p-0">
+              <MoreVertical className="w-4 h-4 text-[#262626]" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">

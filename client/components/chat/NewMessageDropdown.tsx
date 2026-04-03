@@ -24,11 +24,18 @@ export function NewMessageDropdown({ users, currentUserId, onSelectUser, trigger
   const [open, setOpen] = useState(false);
 
   const filteredUsers = useMemo(() => {
-    return users.filter((user) => {
+    const list = users.filter((user) => {
       const matchesSearch =
         user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.email.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesSearch && user.id !== currentUserId;
+    });
+
+    // Pin bot to top if present
+    return list.sort((a, b) => {
+      if (a.id === 'bot-assistant') return -1;
+      if (b.id === 'bot-assistant') return 1;
+      return a.name.localeCompare(b.name);
     });
   }, [users, searchQuery, currentUserId]);
 

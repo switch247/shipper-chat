@@ -1,5 +1,6 @@
 import "dotenv/config";
 import prisma from '../src/lib/prisma';
+import bcrypt from 'bcryptjs';
 
 async function main() {
   console.log('[Seed] Seeding database...');
@@ -10,11 +11,11 @@ async function main() {
     update: {},
     create: {
       id: 'bot-assistant',
-      name: 'AI Logistics Bot',
+      name: 'Shipper Bot',
       email: 'ai-assistant@shipper-chat.com',
       isBot: true,
       status: 'ONLINE',
-      avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Logistics'
+      avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Shipper'
     },
   });
 
@@ -28,8 +29,12 @@ async function main() {
     { id: '6', name: 'Yuki Tanaka', email: 'yuki@example.com', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop', status: 'OFFLINE' },
     { id: '7', name: 'Daniel CH', email: 'daniel@example.com', avatar: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=400&h=400&fit=crop', status: 'ONLINE' },
     // current user
-    { id: 'current-user', name: 'You', email: 'you@example.com', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=400&fit=crop', status: 'ONLINE' },
+    { id: '8', name: 'You', email: 'abel@example.com', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=400&fit=crop', status: 'ONLINE' },
   ];
+
+  // Legacy seeded password used previously
+  const LEGACY_SEED_PASSWORD = 'Password!123';
+  const hashedSeedPassword = await bcrypt.hash(LEGACY_SEED_PASSWORD, 10);
 
   for (const u of seedUsers) {
     await prisma.user.upsert({
@@ -38,6 +43,7 @@ async function main() {
         name: u.name,
         avatar: u.avatar,
         status: u.status as any,
+        password: hashedSeedPassword,
       },
       create: {
         id: u.id,
@@ -45,28 +51,27 @@ async function main() {
         email: u.email,
         avatar: u.avatar,
         status: u.status as any,
+        password: hashedSeedPassword,
       },
     });
   }
 
-  // 3. Create a conversation between bot and the first user with a welcome message
-  const firstUser = await prisma.user.findUnique({ where: { email: users[0]!.email } });
+  // 3. Create a conversation between bot and the first seeded user with a welcome message
+  const firstSeedUser = seedUsers[0];
+  const firstUser = await prisma.user.findUnique({ where: { email: firstSeedUser.email } });
   if (firstUser) {
+    const [a, b] = [bot.id, firstUser.id].sort();
     const conversation = await prisma.conversation.create({
       data: {
         isGroup: false,
-        participants: {
-          create: [
-            { user: { connect: { id: bot.id } } },
-            { user: { connect: { id: firstUser.id } } },
-          ],
-        },
+        userAId: a,
+        userBId: b,
       },
     });
 
     await prisma.message.create({
       data: {
-        content: 'Hello! I am your AI logistics assistant. Ask me anything about shipments or tracking.',
+        content: 'Hello! I am Shipper Bot — your friendly assistant and companion for shipping and logistics. How can I help you today?',
         senderId: bot.id,
         conversationId: conversation.id,
         isAI: true,
@@ -75,36 +80,20 @@ async function main() {
   }
 
   // 4. Create one-on-one conversations between current user and mock users with sample messages
-  const me = await prisma.user.findUnique({ where: { email: 'you@example.com' } });
+  const me = await prisma.user.findUnique({ where: { email: 'abel@example.com' } });
   const otherEmails = ['adrian@example.com', 'yomi@example.com', 'bianca@example.com', 'palmer@example.com', 'yuki@example.com', 'daniel@example.com'];
 
   for (const email of otherEmails) {
     const other = await prisma.user.findUnique({ where: { email } });
     if (!other || !me) continue;
 
-    // Check if conversation between the two already exists
-    const existing = await prisma.conversation.findFirst({
-      where: {
-        AND: [
-          { participants: { some: { userId: other.id } } },
-          { participants: { some: { userId: me.id } } },
-        ],
-      },
-    });
+    const [a, b] = [me.id, other.id].sort();
 
+    // Check if conversation between the two already exists
+    const existing = await prisma.conversation.findFirst({ where: { isGroup: false, userAId: a, userBId: b } });
     if (existing) continue;
 
-    const conv = await prisma.conversation.create({
-      data: {
-        isGroup: false,
-        participants: {
-          create: [
-            { user: { connect: { id: me.id } } },
-            { user: { connect: { id: other.id } } },
-          ],
-        },
-      },
-    });
+    const conv = await prisma.conversation.create({ data: { isGroup: false, userAId: a, userBId: b } });
 
     await prisma.message.createMany({
       data: [
@@ -119,6 +108,25 @@ async function main() {
           conversationId: conv.id,
         },
       ],
+    });
+    // Add a couple more messages with mixed read states to simulate two-way and unread
+    await prisma.message.create({
+      data: {
+        content: `Are you available for a quick call today?`,
+        senderId: other.id,
+        conversationId: conv.id,
+        read: false,
+      },
+    });
+
+    await prisma.message.create({
+      data: {
+        content: `Sure — give me 10 minutes.`,
+        senderId: me.id,
+        conversationId: conv.id,
+        read: true,
+        readAt: new Date(),
+      },
     });
   }
 

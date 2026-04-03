@@ -3,11 +3,10 @@ import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import authRoutes from '@/auth/auth.routes.js';
-import chatRoutes from '@/chat/chat.routes';
-import aiRoutes from '@/ai/ai.routes';
-import { socketHandler, ensureBotOnline } from '@/chat/socket.manager';
-import { setIo } from '@/chat/socket.server';
+import authRoutes from './auth/auth.routes.js';
+import chatRoutes from './chat/chat.routes.js';
+import { socketHandler, ensureBotOnline } from './chat/socket.manager.js';
+import { setIo } from './chat/socket.server.js';
 
 dotenv.config();
 
@@ -26,7 +25,6 @@ app.use(express.json());
 // Routes
 app.use('/auth', authRoutes);
 app.use('/chat', chatRoutes);
-app.use('/ai', aiRoutes);
 
 // Socket.io handler
 io.on('connection', (socket) => {

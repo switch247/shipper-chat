@@ -35,17 +35,17 @@ export default function AuthenticatedLayout({
   }
 
   return (
-    <div className="w-screen h-screen flex overflow-hidden p-2 bg-input">
+    <div className="w-screen h-screen flex overflow-hidden p-2 bg-[#F3F3EE]">
       {/* Global Sidebar */}
       <GlobalSidebar />
 
       {/* Right Section */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-gray-50/50">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Global Top Bar */}
         <GlobalTopBar />
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-auto bg-gray-50/50">
+        <main className="flex-1 overflow-hidden bg-[#F3F3EE]">
           {children}
         </main>
       </div>

@@ -34,7 +34,10 @@ model User {
   isBot         Boolean        @default(false)
   
   // Relations
-  participations Participant[]
+  // Conversations as participant A
+  conversationsA Conversation[] @relation("ConversationsA")
+  // Conversations as participant B
+  conversationsB Conversation[] @relation("ConversationsB")
   sentMessages   Message[]      @relation("SentMessages")
   
   createdAt      DateTime       @default(now())
@@ -43,33 +46,28 @@ model User {
 
 model Conversation {
   id            String         @id @default(cuid())
-  name          String?        // For group chats
+  // For 1:1 chats we store the two participant user ids
+  userAId       String
+  userBId       String
+  name          String?        // Optional display name
   isGroup       Boolean        @default(false)
   image         String?
-  
-  // Relations
-  participants  Participant[]
+
+  // Relations to users
+  userA         User           @relation("ConversationsA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB         User           @relation("ConversationsB", fields: [userBId], references: [id], onDelete: Cascade)
+
   messages      Message[]
-  
+
   lastMessageId String?
-  
+
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+
+  @@unique([userAId, userBId])
 }
 
-model Participant {
-  id             String       @id @default(cuid())
-  userId         String
-  conversationId String
-  
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  
-  lastReadAt     DateTime     @default(now())
-  joinedAt       DateTime     @default(now())
-  
-  @@unique([userId, conversationId])
-}
+// Participant model removed: conversations are strictly 1:1 between userAId and userBId
 
 model Message {
   id             String       @id @default(cuid())
@@ -84,5 +82,7 @@ model Message {
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   
   isAI           Boolean      @default(false)
+  read           Boolean      @default(false)
+  readAt         DateTime?
   createdAt      DateTime     @default(now())
 }

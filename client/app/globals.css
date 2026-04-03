@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
@@ -38,14 +39,30 @@
   --sidebar-border: oklch(0.93 0 0);
   --sidebar-ring: oklch(0.527 0.209 178.8);
   
-  /* Chat-specific tokens */
-  --chat-sent-bg: oklch(0.648 0.2 160);
-  --chat-sent-text: oklch(1 0 0);
-  --chat-received-bg: oklch(0.95 0 0);
-  --chat-received-text: oklch(0.145 0 0);
-  --chat-bubble-radius: 1rem;
-  --chat-time-color: oklch(0.556 0 0);
-  --online-status: oklch(0.648 0.2 160);
+  /* Chat-specific tokens — updated to Figma exact values */
+  --chat-sent-bg: #F0FDF4;
+  --chat-sent-text: #111625;
+  --chat-received-bg: #FFFFFF;
+  --chat-received-text: #1C1C1C;
+  --chat-bubble-radius: 0.75rem;
+  --chat-time-color: #8B8B8B;
+  --online-status: #38C793;
+
+  /* Figma design tokens — prefixed to avoid shadcn conflicts */
+  --figma-bg: #F3F3EE;
+  --figma-brand: #1E9A80;
+  --figma-card: #FFFFFF;
+  --figma-sent-bubble: #F0FDF4;
+  --figma-border: #E8E5DF;
+  --figma-text-primary: #111625;
+  --figma-text-secondary: #1C1C1C;
+  --figma-text-muted: #8B8B8B;
+  --figma-text-placeholder: #8796AF;
+  --figma-online: #38C793;
+  --figma-destructive: #DF1C41;
+  --figma-dropdown-active: #F3F3EE;
+  --figma-icon-bg: #F3F3EE;
+  --figma-credits-card: #F8F8F5;
 }
 
 .dark {
@@ -84,7 +101,7 @@
 }
 
 @theme inline {
-  --font-sans: 'Geist', 'Geist Fallback';
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'Geist Mono', 'Geist Mono Fallback';
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -122,6 +139,10 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  /* Font tokens */
+
+  --font-inter: var(--font-inter);
+  --font-interDisplay: var(--font-inter-display);
 }
 
 @layer base {

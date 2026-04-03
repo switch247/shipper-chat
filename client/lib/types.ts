@@ -14,6 +14,7 @@ export interface Message {
   content: string;
   timestamp: Date;
   read: boolean;
+  readAt?: string | Date | null;
 }
 
 export interface ChatSession {
